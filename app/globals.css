@@ -89,3 +89,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes card-glow-pulse {
+  0%, 100% { box-shadow: 0 25px 50px -12px rgba(99, 78, 180, 0.4); }
+  50%       { box-shadow: 0 25px 60px -8px rgba(167, 139, 250, 0.6); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+
+.card-glow {
+  animation: card-glow-pulse 3s ease-in-out infinite;
+}

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { StarBackground } from "@/components/star-background"
 import { HeroSection } from "@/components/hero-section"
 import { HowItWorks } from "@/components/how-it-works"
@@ -9,14 +10,17 @@ import { Footer } from "@/components/footer"
 import { OrderFormData } from "@/components/order-form"
 
 export default function Home() {
+  const router = useRouter()
+
   const handleSubmit = (data: OrderFormData) => {
-    // TODO: Replace with actual Stripe checkout redirect
-    // Example: redirect to Stripe with form data as metadata
-    console.log("Form submitted, redirecting to Stripe...", data)
-    
-    // Placeholder for Stripe redirect
-    // window.location.href = `/api/checkout?date=${data.date}&city=${data.city}&email=${data.email}&name1=${data.name1}&name2=${data.name2}`
-    alert(`Redirecionando para pagamento...\n\nDados: ${data.name1} & ${data.name2}\nData: ${data.date}\nCidade: ${data.city}\nE-mail: ${data.email}`)
+    const params = new URLSearchParams({
+      date:  data.date,
+      city:  data.city,
+      email: data.email,
+      name1: data.name1,
+      name2: data.name2,
+    })
+    router.push(`/pagamento?${params.toString()}`)
   }
 
   return (
