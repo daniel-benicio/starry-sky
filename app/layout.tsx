@@ -43,7 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="bg-background">
-      <body className={`${playfair.variable} ${inter.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${playfair.variable} ${inter.variable} font-sans antialiased`}>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
