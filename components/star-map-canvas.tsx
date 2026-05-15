@@ -5,7 +5,7 @@ import type { SkyData, StarPoint, SkyLine } from "@/lib/types"
 
 // --- Constants ---
 const BG_SOLID        = "#04060f"
-const LINE_COLOR      = "rgba(255, 255, 255, 0.80)"
+const LINE_COLOR      = "rgba(167, 139, 250, 0.75)"
 const BORDER_MAIN     = "rgba(167, 139, 250, 0.55)"
 const BORDER_INNER    = "rgba(167, 139, 250, 0.18)"
 const TICK_MAJOR      = "rgba(167, 139, 250, 0.70)"
@@ -41,7 +41,7 @@ function starRadius(mag: number): number {
 }
 
 function starOpacity(mag: number): number {
-  return clamp(1 - mag * 0.10, 0.28, 1)
+  return clamp(1 - mag * 0.17, 0.05, 1)
 }
 
 function drawBackground(
@@ -73,14 +73,14 @@ function drawBackgroundStarfield(
     return (seed >>> 0) / 0x100000000
   }
 
-  for (let i = 0; i < 280; i++) {
+  for (let i = 0; i < 55; i++) {
     const angle = rand() * Math.PI * 2
     const dist  = Math.sqrt(rand()) * (radius - 4)
     const x = cx + Math.cos(angle) * dist
     const y = cy + Math.sin(angle) * dist
     ctx.beginPath()
-    ctx.arc(x, y, rand() * 0.42 + 0.08, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(255,255,255,${(rand() * 0.18 + 0.04).toFixed(2)})`
+    ctx.arc(x, y, rand() * 0.35 + 0.08, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255,255,255,${(rand() * 0.10 + 0.04).toFixed(2)})`
     ctx.fill()
   }
 }
