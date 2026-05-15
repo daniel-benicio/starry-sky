@@ -53,7 +53,7 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
 
     // TODO: integrar com Pagarme antes de ir para produção
     await new Promise((res) => setTimeout(res, 800))
-    router.push(`/result?${new URLSearchParams(order).toString()}`)
+    router.push(`/result?${new URLSearchParams(order as unknown as Record<string, string>).toString()}`)
   }
 
   return {
