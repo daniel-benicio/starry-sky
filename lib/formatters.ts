@@ -23,7 +23,12 @@ export function formatCpf(value: string): string {
 
 export function formatDate(dateStr: string): string {
   if (!dateStr) return ""
-  const [year, month, day] = dateStr.split("-")
+  let day: string, month: string, year: string
+  if (dateStr.includes("/")) {
+    ;[day, month, year] = dateStr.split("/")
+  } else {
+    ;[year, month, day] = dateStr.split("-")
+  }
   if (!year || !month || !day) return ""
   return `${parseInt(day)} de ${PT_MONTHS[parseInt(month) - 1]} de ${year}`
 }
