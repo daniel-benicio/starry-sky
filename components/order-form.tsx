@@ -16,7 +16,7 @@ export interface OrderFormData {
 }
 
 interface OrderFormProps {
-  onFormChange?: (data: { date: string; names: string; email: string }) => void
+  onFormChange?: (data: { date: string; names: string; email: string; city: string }) => void
   onSubmit?: (data: OrderFormData) => void
 }
 
@@ -29,30 +29,18 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
 
   const handleDateChange = (value: string) => {
     setDate(value)
-    onFormChange?.({ 
-      date: value, 
-      names: name1 && name2 ? `${name1} & ${name2}` : "",
-      email
-    })
+    onFormChange?.({ date: value, names: name1 && name2 ? `${name1} & ${name2}` : "", email, city })
   }
 
   const handleEmailChange = (value: string) => {
     setEmail(value)
-    onFormChange?.({ 
-      date, 
-      names: name1 && name2 ? `${name1} & ${name2}` : "",
-      email: value
-    })
+    onFormChange?.({ date, names: name1 && name2 ? `${name1} & ${name2}` : "", email: value, city })
   }
 
   const handleNameChange = (value1: string, value2: string) => {
     setName1(value1)
     setName2(value2)
-    onFormChange?.({ 
-      date, 
-      names: value1 && value2 ? `${value1} & ${value2}` : "",
-      email
-    })
+    onFormChange?.({ date, names: value1 && value2 ? `${value1} & ${value2}` : "", email, city })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,7 +81,10 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           type="text"
           placeholder="São Paulo, Brasil"
           value={city}
-          onChange={(e) => setCity(e.target.value)}
+          onChange={(e) => {
+            setCity(e.target.value)
+            onFormChange?.({ date, names: name1 && name2 ? `${name1} & ${name2}` : "", email, city: e.target.value })
+          }}
           className="bg-secondary border-border text-foreground placeholder:text-muted-foreground focus:ring-primary focus:border-primary"
           required
         />

@@ -7,87 +7,77 @@ interface StarMapPreviewProps {
   names?: string
 }
 
+// Decorative static preview — does not compute real astronomy
 export function StarMapPreview({ date, names }: StarMapPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const size = canvas.width
+    const size = 300
     const center = size / 2
     const radius = size / 2 - 20
 
-    // Clear canvas
     ctx.fillStyle = "#0a0a1a"
     ctx.fillRect(0, 0, size, size)
 
-    // Draw outer circle
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(center, center, radius, 0, Math.PI * 2)
+    ctx.clip()
+
+    const grad = ctx.createRadialGradient(center, center, 0, center, center, radius)
+    grad.addColorStop(0, "rgba(20, 10, 50, 0.5)")
+    grad.addColorStop(1, "rgba(5, 5, 20, 0.8)")
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, size, size)
+
+    // Deterministic decorative stars using golden ratio spiral
+    const brightPoints: [number, number][] = []
+    for (let i = 0; i < 160; i++) {
+      const angle = i * 2.399963    // golden angle
+      const dist = Math.sqrt(i / 160) * (radius - 15)
+      const x = center + Math.cos(angle) * dist
+      const y = center + Math.sin(angle) * dist
+      const isBright = i % 11 === 0
+
+      if (isBright) brightPoints.push([x, y])
+
+      ctx.beginPath()
+      ctx.arc(x, y, isBright ? 2.2 : 0.9, 0, Math.PI * 2)
+      ctx.fillStyle = isBright
+        ? "rgba(196, 181, 253, 0.95)"
+        : `rgba(255, 255, 255, ${0.25 + (i % 5) * 0.08})`
+      ctx.fill()
+    }
+
+    // Constellation lines between bright points
+    ctx.strokeStyle = "rgba(167, 139, 250, 0.3)"
+    ctx.lineWidth = 0.7
+    for (let i = 0; i < brightPoints.length - 1; i++) {
+      const [x1, y1] = brightPoints[i]
+      const [x2, y2] = brightPoints[i + 1]
+      const dist = Math.hypot(x2 - x1, y2 - y1)
+      if (dist < 80) {
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+      }
+    }
+
+    ctx.restore()
+
+    // Border
     ctx.beginPath()
     ctx.arc(center, center, radius, 0, Math.PI * 2)
     ctx.strokeStyle = "rgba(167, 139, 250, 0.3)"
     ctx.lineWidth = 1
     ctx.stroke()
-
-    // Generate seed from date
-    const seed = date 
-      ? date.split("-").reduce((acc, val) => acc + parseInt(val), 0) 
-      : 42
-
-    // Seeded random function
-    const seededRandom = (s: number) => {
-      const x = Math.sin(s) * 10000
-      return x - Math.floor(x)
-    }
-
-    // Draw stars
-    const numStars = 150
-    for (let i = 0; i < numStars; i++) {
-      const angle = seededRandom(seed + i * 1.1) * Math.PI * 2
-      const dist = seededRandom(seed + i * 2.2) * radius * 0.95
-      const x = center + Math.cos(angle) * dist
-      const y = center + Math.sin(angle) * dist
-      const starSize = seededRandom(seed + i * 3.3) * 2 + 0.5
-      const brightness = seededRandom(seed + i * 4.4) * 0.6 + 0.4
-
-      ctx.beginPath()
-      ctx.arc(x, y, starSize, 0, Math.PI * 2)
-      ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`
-      ctx.fill()
-    }
-
-    // Draw constellation lines
-    const constellationPoints: [number, number][] = []
-    for (let i = 0; i < 7; i++) {
-      const angle = seededRandom(seed + i * 5.5) * Math.PI * 2
-      const dist = seededRandom(seed + i * 6.6) * radius * 0.6 + radius * 0.1
-      constellationPoints.push([
-        center + Math.cos(angle) * dist,
-        center + Math.sin(angle) * dist
-      ])
-    }
-
-    ctx.beginPath()
-    ctx.moveTo(constellationPoints[0][0], constellationPoints[0][1])
-    for (let i = 1; i < constellationPoints.length; i++) {
-      ctx.lineTo(constellationPoints[i][0], constellationPoints[i][1])
-    }
-    ctx.strokeStyle = "rgba(167, 139, 250, 0.4)"
-    ctx.lineWidth = 0.5
-    ctx.stroke()
-
-    // Draw brighter stars at constellation points
-    constellationPoints.forEach(([x, y]) => {
-      ctx.beginPath()
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2)
-      ctx.fillStyle = "rgba(196, 181, 253, 0.9)"
-      ctx.fill()
-    })
-
-  }, [date])
+  }, [])   // only on mount — fully static
 
   return (
     <div className="relative">
@@ -105,11 +95,13 @@ export function StarMapPreview({ date, names }: StarMapPreviewProps) {
             {names || "Ana & Pedro"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {date ? new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { 
-              day: "numeric", 
-              month: "long", 
-              year: "numeric" 
-            }) : "14 de fevereiro de 2020"}
+            {date
+              ? new Date(date + "T12:00:00").toLocaleDateString("pt-BR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+              : "14 de fevereiro de 2020"}
           </p>
         </div>
       </div>

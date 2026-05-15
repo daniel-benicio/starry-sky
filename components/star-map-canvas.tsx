@@ -1,180 +1,255 @@
-"use client";
+"use client"
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react"
+import type { SkyData, StarPoint, SkyLine } from "@/lib/types"
+
+// --- Constants ---
+const BG_SOLID        = "#04060f"
+const LINE_COLOR      = "rgba(255, 255, 255, 0.80)"
+const BORDER_MAIN     = "rgba(167, 139, 250, 0.55)"
+const BORDER_INNER    = "rgba(167, 139, 250, 0.18)"
+const TICK_MAJOR      = "rgba(167, 139, 250, 0.70)"
+const TICK_MINOR      = "rgba(167, 139, 250, 0.28)"
+const COMPASS_COLOR   = "rgba(255, 255, 255, 0.65)"
+
+const STAR_MAG_MIN      = -1.5
+const STAR_MAG_MAX      =  5.5
+const STAR_RADIUS_BASE  =  3.5
+const STAR_RADIUS_MIN   =  0.4
+const STAR_RADIUS_SCALE =  0.55
+const STAR_GLOW_MIN     =  1.5
+const STAR_GLOW_FACTOR  =  5.0
+
+const TICK_MAJOR_COUNT = 12
+const TICK_MINOR_COUNT = 60
+const COMPASS_OFFSET   = 22
+
+// ---
 
 interface StarMapCanvasProps {
-  date: string;
-  name1: string;
-  name2: string;
-  size?: number;
+  skyData: SkyData
+  size?: number
+  onReady?: (canvas: HTMLCanvasElement) => void
 }
 
-// Seeded random number generator
-function seededRandom(seed: number) {
-  return function () {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v))
 }
 
-function dateToSeed(dateStr: string): number {
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    const char = dateStr.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+function starRadius(mag: number): number {
+  return Math.max(STAR_RADIUS_MIN, STAR_RADIUS_BASE - clamp(mag, STAR_MAG_MIN, STAR_MAG_MAX) * STAR_RADIUS_SCALE)
+}
+
+function starOpacity(mag: number): number {
+  return clamp(1 - mag * 0.10, 0.28, 1)
+}
+
+function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  size: number,
+) {
+  ctx.fillStyle = BG_SOLID
+  ctx.fillRect(0, 0, size, size)
+
+  const vignette = ctx.createRadialGradient(cx, cy, radius * 0.3, cx, cy, radius)
+  vignette.addColorStop(0, "rgba(0, 0, 0, 0)")
+  vignette.addColorStop(1, "rgba(0, 0, 0, 0.28)")
+  ctx.fillStyle = vignette
+  ctx.fillRect(0, 0, size, size)
+}
+
+function drawBackgroundStarfield(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  let seed = 0x9e3779b9
+  const rand = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0
+    return (seed >>> 0) / 0x100000000
   }
-  return Math.abs(hash);
+
+  for (let i = 0; i < 280; i++) {
+    const angle = rand() * Math.PI * 2
+    const dist  = Math.sqrt(rand()) * (radius - 4)
+    const x = cx + Math.cos(angle) * dist
+    const y = cy + Math.sin(angle) * dist
+    ctx.beginPath()
+    ctx.arc(x, y, rand() * 0.42 + 0.08, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255,255,255,${(rand() * 0.18 + 0.04).toFixed(2)})`
+    ctx.fill()
+  }
 }
 
-export function StarMapCanvas({
-  date,
-  name1,
-  name2,
-  size = 500,
-}: StarMapCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+function drawConstellationLines(
+  ctx: CanvasRenderingContext2D,
+  lines: SkyLine[],
+  cx: number,
+  cy: number,
+  mapRadius: number,
+) {
+  ctx.strokeStyle = LINE_COLOR
+  ctx.lineWidth = 0.6
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  for (const { x1, y1, x2, y2 } of lines) {
+    ctx.beginPath()
+    ctx.moveTo(cx + x1 * mapRadius, cy + y1 * mapRadius)
+    ctx.lineTo(cx + x2 * mapRadius, cy + y2 * mapRadius)
+    ctx.stroke()
+  }
+}
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+function drawStar(
+  ctx: CanvasRenderingContext2D,
+  star: StarPoint,
+  cx: number,
+  cy: number,
+  mapRadius: number,
+) {
+  const x = cx + star.x * mapRadius
+  const y = cy + star.y * mapRadius
+  const r = starRadius(star.magnitude)
+  const opacity = starOpacity(star.magnitude)
 
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    ctx.scale(dpr, dpr);
+  if (r > STAR_GLOW_MIN) {
+    const glowR = r * STAR_GLOW_FACTOR
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, glowR)
+    glow.addColorStop(0,    `rgba(255,255,255,${(opacity * 0.6).toFixed(2)})`)
+    glow.addColorStop(0.25, `rgba(255,255,255,${(opacity * 0.12).toFixed(2)})`)
+    glow.addColorStop(1,    "rgba(255,255,255,0)")
+    ctx.beginPath()
+    ctx.arc(x, y, glowR, 0, Math.PI * 2)
+    ctx.fillStyle = glow
+    ctx.fill()
+  }
 
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const radius = size / 2 - 30;
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fillStyle = `rgba(255,255,255,${opacity})`
+  ctx.fill()
+}
 
-    // Background
-    ctx.fillStyle = "#0a0a1a";
-    ctx.fillRect(0, 0, size, size);
+function drawBorder(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+  ctx.strokeStyle = BORDER_MAIN
+  ctx.lineWidth = 1.5
+  ctx.stroke()
 
-    // Clip to circle
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - 10, 0, Math.PI * 2);
-    ctx.clip();
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius - 7, 0, Math.PI * 2)
+  ctx.strokeStyle = BORDER_INNER
+  ctx.lineWidth = 0.6
+  ctx.stroke()
+}
 
-    // Seeded random for consistent stars
-    const seed = dateToSeed(date + name1 + name2);
-    const random = seededRandom(seed);
+function drawTicks(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  ctx.strokeStyle = TICK_MINOR
+  ctx.lineWidth = 0.6
+  for (let i = 0; i < TICK_MINOR_COUNT; i++) {
+    if (i % 5 === 0) continue
+    const angle = (i / TICK_MINOR_COUNT) * Math.PI * 2 - Math.PI / 2
+    ctx.beginPath()
+    ctx.moveTo(cx + Math.cos(angle) * (radius - 4), cy + Math.sin(angle) * (radius - 4))
+    ctx.lineTo(cx + Math.cos(angle) * radius,       cy + Math.sin(angle) * radius)
+    ctx.stroke()
+  }
 
-    // Generate ~200 background stars
-    for (let i = 0; i < 200; i++) {
-      const angle = random() * Math.PI * 2;
-      const dist = random() * (radius - 20);
-      const x = centerX + Math.cos(angle) * dist;
-      const y = centerY + Math.sin(angle) * dist;
-      const starSize = random() * 1.5 + 0.5;
-      const opacity = random() * 0.6 + 0.2;
+  ctx.strokeStyle = TICK_MAJOR
+  ctx.lineWidth = 1.5
+  for (let i = 0; i < TICK_MAJOR_COUNT; i++) {
+    const angle = (i / TICK_MAJOR_COUNT) * Math.PI * 2 - Math.PI / 2
+    ctx.beginPath()
+    ctx.moveTo(cx + Math.cos(angle) * (radius - 10), cy + Math.sin(angle) * (radius - 10))
+    ctx.lineTo(cx + Math.cos(angle) * radius,        cy + Math.sin(angle) * radius)
+    ctx.stroke()
+  }
+}
 
-      ctx.beginPath();
-      ctx.arc(x, y, starSize, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      ctx.fill();
-    }
+function drawCompassLabels(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  ctx.font = "12px 'Playfair Display', Georgia, serif"
+  ctx.fillStyle = COMPASS_COLOR
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
 
-    // Generate 8 bright constellation stars
-    const brightStars: { x: number; y: number }[] = [];
-    for (let i = 0; i < 8; i++) {
-      const angle = random() * Math.PI * 2;
-      const dist = random() * (radius - 60) + 30;
-      const x = centerX + Math.cos(angle) * dist;
-      const y = centerY + Math.sin(angle) * dist;
-      brightStars.push({ x, y });
+  const d = radius + COMPASS_OFFSET
+  ctx.fillText("N", cx, cy - d)
+  ctx.fillText("S", cx, cy + d)
+  ctx.fillText("L", cx + d, cy)
+  ctx.fillText("O", cx - d, cy)
+}
 
-      // Glow effect
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
-      gradient.addColorStop(0, "rgba(255, 255, 255, 0.9)");
-      gradient.addColorStop(0.3, "rgba(167, 139, 250, 0.4)");
-      gradient.addColorStop(1, "rgba(167, 139, 250, 0)");
-      ctx.beginPath();
-      ctx.arc(x, y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = gradient;
-      ctx.fill();
+function renderSkyMap(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  skyData: SkyData,
+) {
+  const cx        = size / 2
+  const cy        = size / 2
+  const radius    = size / 2 - 32
+  const clipR     = radius - 8
+  const mapRadius = radius - 14
 
-      // Star core
-      ctx.beginPath();
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-    }
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(cx, cy, clipR, 0, Math.PI * 2)
+  ctx.clip()
 
-    // Draw constellation lines connecting bright stars
-    ctx.strokeStyle = "rgba(167, 139, 250, 0.3)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([]);
+  drawBackground(ctx, cx, cy, clipR, size)
+  drawBackgroundStarfield(ctx, cx, cy, clipR)
+  drawConstellationLines(ctx, skyData.lines, cx, cy, mapRadius)
 
-    // Connect stars in a pattern
-    const connections = [
-      [0, 1],
-      [1, 2],
-      [2, 3],
-      [3, 4],
-      [4, 5],
-      [5, 6],
-      [6, 7],
-      [7, 0],
-      [1, 4],
-      [2, 6],
-    ];
+  // Dimmer stars underneath, bright on top
+  const sorted = [...skyData.stars].sort((a, b) => b.magnitude - a.magnitude)
+  for (const star of sorted) drawStar(ctx, star, cx, cy, mapRadius)
 
-    connections.forEach(([a, b]) => {
-      if (brightStars[a] && brightStars[b]) {
-        ctx.beginPath();
-        ctx.moveTo(brightStars[a].x, brightStars[a].y);
-        ctx.lineTo(brightStars[b].x, brightStars[b].y);
-        ctx.stroke();
-      }
-    });
+  ctx.restore()
 
-    ctx.restore();
+  drawBorder(ctx, cx, cy, radius)
+  drawTicks(ctx, cx, cy, radius)
+  drawCompassLabels(ctx, cx, cy, radius)
+}
 
-    // Draw circular border
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(167, 139, 250, 0.4)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+export function StarMapCanvas({ skyData, size = 500, onReady }: StarMapCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-    // Draw tick marks every 30 degrees (gold/amber)
-    for (let i = 0; i < 12; i++) {
-      const angle = (i * 30 * Math.PI) / 180 - Math.PI / 2;
-      const innerR = radius - 8;
-      const outerR = radius;
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
 
-      ctx.beginPath();
-      ctx.moveTo(
-        centerX + Math.cos(angle) * innerR,
-        centerY + Math.sin(angle) * innerR
-      );
-      ctx.lineTo(
-        centerX + Math.cos(angle) * outerR,
-        centerY + Math.sin(angle) * outerR
-      );
-      ctx.strokeStyle = "rgba(251, 191, 36, 0.7)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
+    const dpr = window.devicePixelRatio || 1
+    canvas.width  = size * dpr
+    canvas.height = size * dpr
+    ctx.scale(dpr, dpr)
 
-    // Draw compass marks (N S L O)
-    ctx.font = "14px 'Playfair Display', Georgia, serif";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    renderSkyMap(ctx, size, skyData)
+    onReady?.(canvas)
+  }, [skyData, size, onReady])
 
-    const compassOffset = radius + 18;
-    ctx.fillText("N", centerX, centerY - compassOffset);
-    ctx.fillText("S", centerX, centerY + compassOffset);
-    ctx.fillText("L", centerX + compassOffset, centerY);
-    ctx.fillText("O", centerX - compassOffset, centerY);
-  }, [date, name1, name2, size]);
+  useEffect(() => { draw() }, [draw])
 
   return (
     <canvas
@@ -182,5 +257,5 @@ export function StarMapCanvas({
       style={{ width: size, height: size }}
       className="rounded-full"
     />
-  );
+  )
 }
