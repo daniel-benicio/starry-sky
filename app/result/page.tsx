@@ -1,48 +1,28 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Download, Loader2, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { StarMapCanvas } from "@/components/star-map-canvas";
 import { StarBackground } from "@/components/star-background";
+import { generatePosterPng } from "@/lib/generate-poster";
+import { formatDate } from "@/lib/formatters";
 
-function formatDate(dateStr: string): string {
-  const months = [
-    "janeiro",
-    "fevereiro",
-    "março",
-    "abril",
-    "maio",
-    "junho",
-    "julho",
-    "agosto",
-    "setembro",
-    "outubro",
-    "novembro",
-    "dezembro",
-  ];
-
-  // Handle both DD/MM/YYYY and YYYY-MM-DD formats
-  let day: string, month: string, year: string;
-
-  if (dateStr.includes("/")) {
-    [day, month, year] = dateStr.split("/");
-  } else {
-    [year, month, day] = dateStr.split("-");
-  }
-
-  const monthIndex = parseInt(month, 10) - 1;
-  const dayNum = parseInt(day, 10);
-
-  return `${dayNum} de ${months[monthIndex]} de ${year}`;
-}
+const ASTRONOMICAL_DATA = {
+  constellation: "Órion",
+  moonPhase: "Lua Crescente 34%",
+  brightestStar: "Vênus",
+  season: "Verão",
+} as const;
 
 function ResultContent() {
   const searchParams = useSearchParams();
+  const posterFileRef = useRef<File | null>(null);
+  const [posterReady, setPosterReady] = useState(false);
 
   const date = searchParams.get("date") || "14/02/2021";
   const city = searchParams.get("city") || "São Paulo";
@@ -50,13 +30,39 @@ function ResultContent() {
   const name2 = searchParams.get("name2") || "Lucas";
   const email = searchParams.get("email") || "ana@email.com";
 
+  useEffect(() => {
+    generatePosterPng({ date, name1, name2, city, ...ASTRONOMICAL_DATA }).then(async (dataUrl) => {
+      const blob = await fetch(dataUrl).then((r) => r.blob());
+      posterFileRef.current = new File([blob], `ceu-${name1}-${name2}.png`, { type: "image/png" });
+      setPosterReady(true);
+    });
+  }, [date, name1, name2, city]);
+
+  function handleDownload() {
+    const file = posterFileRef.current;
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function handleShare() {
+    const file = posterFileRef.current;
+    if (!file || !navigator.share) return;
+    navigator.share({ files: [file], title: "Céu do Nosso Dia" });
+  }
+
   const formattedDate = formatDate(date);
 
   return (
     <div className="min-h-screen bg-background text-foreground relative">
       <StarBackground />
 
-      {/* Top bar */}
       <header className="relative z-10 border-b border-border/30 bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
@@ -66,19 +72,11 @@ function ResultContent() {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="relative z-10 container mx-auto px-4 py-12 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
           {/* Left Column - Star Map */}
           <div className="flex flex-col items-center text-center">
-            <div className="relative">
-              <StarMapCanvas
-                date={date}
-                name1={name1}
-                name2={name2}
-                size={400}
-              />
-            </div>
+            <StarMapCanvas date={date} name1={name1} name2={name2} size={400} />
 
             <h2 className="mt-8 font-serif text-3xl italic text-foreground">
               {name1} & {name2}
@@ -102,45 +100,56 @@ function ResultContent() {
               estrela foi posicionada com precisão astronômica.
             </p>
 
-            {/* Detail card */}
             <Card className="bg-card/50 border-border/50 mb-8">
               <CardContent className="p-6 grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium">Órion</p>
+                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.constellation}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium">
-                    Lua Crescente 34%
-                  </p>
+                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.moonPhase}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estrela mais brilhante
                   </p>
-                  <p className="text-foreground font-medium">Vênus</p>
+                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.brightestStar}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium">Verão</p>
+                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.season}</p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Action buttons */}
             <div className="flex flex-col gap-3 mb-4">
-              <Button size="lg" className="w-full gap-2">
-                <Download className="h-4 w-4" />
-                Baixar pôster (PNG)
+              <Button
+                size="lg"
+                className="w-full gap-2"
+                onClick={handleDownload}
+                disabled={!posterReady}
+              >
+                {!posterReady ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {!posterReady ? "Preparando pôster…" : "Baixar pôster (PNG)"}
               </Button>
-              <Button size="lg" variant="outline" className="w-full gap-2">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full gap-2 lg:hidden"
+                onClick={handleShare}
+                disabled={!posterReady}
+              >
                 <Share2 className="h-4 w-4" />
                 Compartilhar
               </Button>
@@ -152,7 +161,6 @@ function ResultContent() {
 
             <Separator className="mb-8 bg-border/50" />
 
-            {/* Gift section */}
             <div className="text-center">
               <p className="text-muted-foreground mb-3">
                 Gostou? Presenteie outra pessoa
