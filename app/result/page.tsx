@@ -22,13 +22,26 @@ const ASTRONOMICAL_DATA = {
 function ResultContent() {
   const searchParams = useSearchParams();
   const posterFileRef = useRef<File | null>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const [posterReady, setPosterReady] = useState(false);
+  const [canvasSize, setCanvasSize] = useState(400);
 
   const date = searchParams.get("date") || "14/02/2021";
   const city = searchParams.get("city") || "São Paulo";
   const name1 = searchParams.get("name1") || "Ana";
   const name2 = searchParams.get("name2") || "Lucas";
   const email = searchParams.get("email") || "ana@email.com";
+
+  // Track the canvas wrapper width so the canvas never overflows on small screens
+  useEffect(() => {
+    const el = canvasWrapperRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setCanvasSize(Math.min(Math.floor(entry.contentRect.width), 400));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     generatePosterPng({ date, name1, name2, city, ...ASTRONOMICAL_DATA }).then(async (dataUrl) => {
@@ -60,7 +73,7 @@ function ResultContent() {
   const formattedDate = formatDate(date);
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative">
+    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <StarBackground />
 
       <header className="relative z-10 border-b border-border/30 bg-background/80 backdrop-blur-sm">
@@ -72,13 +85,16 @@ function ResultContent() {
         </div>
       </header>
 
-      <main className="relative z-10 container mx-auto px-4 py-12 lg:py-20">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-          {/* Left Column - Star Map */}
-          <div className="flex flex-col items-center text-center">
-            <StarMapCanvas date={date} name1={name1} name2={name2} size={400} />
+      <main className="relative z-10 container mx-auto px-4 py-8 lg:py-20">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center max-w-6xl mx-auto">
 
-            <h2 className="mt-8 font-serif text-3xl italic text-foreground">
+          {/* Left Column - Star Map */}
+          <div className="flex flex-col items-center text-center min-w-0">
+            <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
+              <StarMapCanvas date={date} name1={name1} name2={name2} size={canvasSize} />
+            </div>
+
+            <h2 className="mt-6 font-serif text-2xl sm:text-3xl italic text-foreground">
               {name1} & {name2}
             </h2>
 
@@ -90,41 +106,49 @@ function ResultContent() {
           </div>
 
           {/* Right Column - Details */}
-          <div className="flex flex-col">
-            <h1 className="font-serif text-4xl lg:text-5xl text-foreground mb-4">
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-foreground mb-4">
               Seu mapa está pronto
             </h1>
 
-            <p className="text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-muted-foreground mb-6 leading-relaxed">
               Aqui está o céu exato de {city} na noite de {formattedDate}. Cada
               estrela foi posicionada com precisão astronômica.
             </p>
 
-            <Card className="bg-card/50 border-border/50 mb-8">
-              <CardContent className="p-6 grid grid-cols-2 gap-4">
+            <Card className="bg-card/50 border-border/50 mb-6">
+              <CardContent className="p-4 sm:p-6 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.constellation}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {ASTRONOMICAL_DATA.constellation}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.moonPhase}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {ASTRONOMICAL_DATA.moonPhase}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estrela mais brilhante
                   </p>
-                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.brightestStar}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {ASTRONOMICAL_DATA.brightestStar}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium">{ASTRONOMICAL_DATA.season}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {ASTRONOMICAL_DATA.season}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -155,11 +179,11 @@ function ResultContent() {
               </Button>
             </div>
 
-            <p className="text-sm text-muted-foreground text-center mb-8">
+            <p className="text-sm text-muted-foreground text-center mb-6">
               Também enviamos para {email}
             </p>
 
-            <Separator className="mb-8 bg-border/50" />
+            <Separator className="mb-6 bg-border/50" />
 
             <div className="text-center">
               <p className="text-muted-foreground mb-3">
@@ -170,6 +194,7 @@ function ResultContent() {
               </Button>
             </div>
           </div>
+
         </div>
       </main>
     </div>
