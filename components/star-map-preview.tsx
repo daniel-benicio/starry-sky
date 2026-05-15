@@ -90,14 +90,14 @@ export function StarMapPreview({ date, names }: StarMapPreviewProps) {
   }, [date])
 
   return (
-    <div className="relative">
+    <div className="relative w-full max-w-[300px]">
       <div className="absolute inset-0 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative rounded-full border border-primary/20 p-4 bg-background/50 backdrop-blur-sm">
         <canvas
           ref={canvasRef}
           width={300}
           height={300}
-          className="rounded-full"
+          className="rounded-full w-full h-auto"
           aria-label="Prévia do mapa estelar"
         />
         <div className="absolute bottom-8 left-0 right-0 text-center">
