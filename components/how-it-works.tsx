@@ -42,7 +42,7 @@ export function HowItWorks() {
                 </div>
 
                 {/* Number badge */}
-                <div className="absolute top-0 right-1/2 translate-x-14 -translate-y-1 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                <div className="absolute top-0 right-1/2 translate-x-14 -translate-y-1 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium z-20">
                   {step.number}
                 </div>
 

@@ -1,9 +1,9 @@
 "use client"
 
-import { Suspense, useRef, useCallback, useMemo, useState } from "react"
+import { Suspense, useRef, useCallback, useMemo, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Download, Share2, Sparkles } from "lucide-react"
+import { Download, Loader2, Share2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -78,9 +78,11 @@ function buildPosterCanvas(
 // ---
 
 function ResultContent() {
-  const searchParams   = useSearchParams()
-  const mapCanvasRef   = useRef<HTMLCanvasElement | null>(null)
+  const searchParams    = useSearchParams()
+  const mapCanvasRef    = useRef<HTMLCanvasElement | null>(null)
+  const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
+  const [canvasSize, setCanvasSize]   = useState(400)
 
   const date  = searchParams.get("date")  ?? "2021-02-14"
   const city  = searchParams.get("city")  ?? "São Paulo"
@@ -98,6 +100,16 @@ function ResultContent() {
       return FALLBACK_SKY_DATA
     }
   }, [date, coords])
+
+  useEffect(() => {
+    const el = canvasWrapperRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      setCanvasSize(Math.min(Math.floor(entry.contentRect.width), 400))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const handleCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
     mapCanvasRef.current = canvas
@@ -126,11 +138,11 @@ function ResultContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative">
+    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <StarBackground />
 
       <header className="relative z-10 border-b border-border/30 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             <span className="font-serif text-lg">Céu do Nosso Dia</span>
@@ -138,17 +150,19 @@ function ResultContent() {
         </div>
       </header>
 
-      <main className="relative z-10 container mx-auto px-4 py-12 lg:py-20">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
+      <main className="relative z-10 container mx-auto px-6 py-8 lg:py-20">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center max-w-6xl mx-auto">
 
-          {/* Star map */}
-          <div className="flex flex-col items-center text-center">
-            <StarMapCanvas
-              skyData={skyData}
-              size={400}
-              onReady={handleCanvasReady}
-            />
-            <h2 className="mt-8 font-serif text-3xl italic text-foreground">
+          {/* Left Column - Star Map */}
+          <div className="flex flex-col items-center text-center min-w-0">
+            <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
+              <StarMapCanvas
+                skyData={skyData}
+                size={canvasSize}
+                onReady={handleCanvasReady}
+              />
+            </div>
+            <h2 className="mt-6 font-serif text-2xl sm:text-3xl italic text-foreground">
               {name1} & {name2}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">{formattedDate}</p>
@@ -157,49 +171,58 @@ function ResultContent() {
             </p>
           </div>
 
-          {/* Details */}
-          <div className="flex flex-col">
-            <h1 className="font-serif text-4xl lg:text-5xl text-foreground mb-4">
+          {/* Right Column - Details */}
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-foreground mb-4">
               Seu mapa está pronto
             </h1>
-            <p className="text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-muted-foreground mb-6 leading-relaxed">
               Aqui está o céu exato de {coords.displayName} na noite de {formattedDate}.
               Cada estrela foi posicionada com precisão astronômica.
             </p>
 
-            <Card className="bg-card/50 border-border/50 mb-8">
-              <CardContent className="p-6 grid grid-cols-2 gap-4">
+            <Card className="bg-card/50 border-border/50 mb-6">
+              <CardContent className="p-4 sm:p-6 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium">{skyData.dominantConstellation}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.dominantConstellation}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium">{skyData.moonPhase}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.moonPhase}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estrela mais brilhante
                   </p>
-                  <p className="text-foreground font-medium">{skyData.brightestPlanet}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.brightestPlanet}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium">{skyData.season}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.season}</p>
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex flex-col gap-3 mb-4">
-              <Button size="lg" className="w-full gap-2" onClick={handleDownload} disabled={downloading}>
-                <Download className="h-4 w-4" />
-                {downloading ? "Gerando..." : "Baixar pôster (PNG)"}
+              <Button
+                size="lg"
+                className="w-full gap-2"
+                onClick={handleDownload}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {downloading ? "Gerando…" : "Baixar pôster (PNG)"}
               </Button>
               <Button size="lg" variant="outline" className="w-full gap-2" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
@@ -208,12 +231,12 @@ function ResultContent() {
             </div>
 
             {email && (
-              <p className="text-sm text-muted-foreground text-center mb-8">
+              <p className="text-sm text-muted-foreground text-center mb-6">
                 Também enviamos para {email}
               </p>
             )}
 
-            <Separator className="mb-8 bg-border/50" />
+            <Separator className="mb-6 bg-border/50" />
 
             <div className="text-center">
               <p className="text-muted-foreground mb-3">Gostou? Presenteie outra pessoa</p>
