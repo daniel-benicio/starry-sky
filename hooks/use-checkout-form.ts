@@ -29,7 +29,7 @@ export interface UseCheckoutFormReturn {
   setField: (key: keyof CardFields, rawValue: string) => void
   onCVVFocus: () => void
   onCVVBlur: () => void
-  onSubmit: (e: React.FormEvent) => Promise<void>
+  onSubmit: (e: React.SyntheticEvent) => Promise<void>
 }
 
 export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
@@ -46,14 +46,27 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
     setFields((prev) => ({ ...prev, [key]: FIELD_FORMATTERS[key](rawValue) }))
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
-    // TODO: integrar com Pagarme antes de ir para produção
-    await new Promise((res) => setTimeout(res, 800))
-    router.push(`/result?${new URLSearchParams(order as unknown as Record<string, string>).toString()}`)
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message ?? "Erro ao processar pedido.")
+
+      router.push(`/result?${new URLSearchParams(order as unknown as Record<string, string>).toString()}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado. Tente novamente.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return {

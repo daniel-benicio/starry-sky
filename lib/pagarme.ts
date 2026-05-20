@@ -9,6 +9,27 @@ export interface PagarmeCardData {
   cvv: string
 }
 
+export async function tokenizeCard(card: PagarmeCardData, publicKey: string): Promise<string> {
+  const res = await fetch(`${API_URL}/tokens?appId=${publicKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "card",
+      card: {
+        number: card.number.replace(/\s/g, ""),
+        holder_name: card.holderName,
+        holder_document: card.holderDocument.replace(/\D/g, ""),
+        exp_month: card.expMonth,
+        exp_year: card.expYear,
+        cvv: card.cvv,
+      },
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message ?? "Erro ao tokenizar cartão.")
+  return json.id
+}
+
 export interface PagarmeOrderData {
   customerName: string
   email: string
