@@ -19,7 +19,7 @@ export interface SkyLine {
 
 export interface SkyInfo {
   moonPhase: string
-  brightestPlanet: string
+  brightestPlanet: string | null
   season: string
   dominantConstellation: string
 }

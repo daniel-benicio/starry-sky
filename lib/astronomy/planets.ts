@@ -18,8 +18,8 @@ const MIN_VISIBLE_ALTITUDE_DEG = 5
 export function findBrightestVisiblePlanet(
   date: Date,
   observer: Astronomy.Observer,
-): string {
-  let bestName = "Vênus"
+): string | null {
+  let bestName: string | null = null
   let bestMagnitude = Infinity
 
   for (const { body, name } of PLANETS) {

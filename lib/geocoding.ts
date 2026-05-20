@@ -71,9 +71,7 @@ const CITY_COORDINATES: Record<string, Coordinates> = {
   "sydney":          { lat: -33.8688, lon: 151.2093, displayName: "Sydney" },
 }
 
-const SAO_PAULO: Coordinates = { lat: -23.5505, lon: -46.6333, displayName: "São Paulo" }
-
-export function geocodeCity(input: string): Coordinates {
+export function geocodeCity(input: string): Coordinates | null {
   const normalized = input.toLowerCase().trim().replace(/,.*$/, "").trim()
 
   const exact = CITY_COORDINATES[normalized]
@@ -84,5 +82,5 @@ export function geocodeCity(input: string): Coordinates {
   )
   if (partial) return partial[1]
 
-  return SAO_PAULO
+  return null
 }
