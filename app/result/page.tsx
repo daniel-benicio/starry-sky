@@ -11,12 +11,14 @@ import { StarMapCanvas } from "@/components/star-map-canvas"
 import { StarBackground } from "@/components/star-background"
 import { computeSkyData } from "@/lib/astronomy"
 import { geocodeCity } from "@/lib/geocoding"
-import type { SkyData } from "@/lib/types"
+import type { SkyData, Coordinates } from "@/lib/types"
 
 // --- Constants ---
 
 const POSTER_WIDTH  = 900
 const POSTER_HEIGHT = 1020
+
+const SAO_PAULO: Coordinates = { lat: -23.5505, lon: -46.6333, displayName: "São Paulo" }
 
 const FALLBACK_SKY_DATA: SkyData = {
   stars: [],
@@ -42,12 +44,14 @@ function formatDate(dateStr: string): string {
   return `${parseInt(day, 10)} de ${MONTH_NAMES[parseInt(month, 10) - 1]} de ${year}`
 }
 
-function buildPosterCanvas(
+async function buildPosterCanvas(
   sourceCanvas: HTMLCanvasElement,
   name1: string,
   name2: string,
   formattedDate: string,
-): HTMLCanvasElement {
+): Promise<HTMLCanvasElement> {
+  await document.fonts.ready
+
   const poster = document.createElement("canvas")
   poster.width  = POSTER_WIDTH
   poster.height = POSTER_HEIGHT
@@ -83,6 +87,7 @@ function ResultContent() {
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [canvasSize, setCanvasSize]   = useState(400)
+  const [skyData, setSkyData]         = useState<SkyData | null>(null)
 
   const date  = searchParams.get("date")  ?? "2021-02-14"
   const city  = searchParams.get("city")  ?? "São Paulo"
@@ -91,14 +96,22 @@ function ResultContent() {
   const email = searchParams.get("email") ?? ""
 
   const formattedDate = formatDate(date)
-  const coords = useMemo(() => geocodeCity(city), [city])
+  const rawCoords = useMemo(() => geocodeCity(city), [city])
+  const coords = rawCoords ?? SAO_PAULO
+  const cityNotFound = rawCoords === null
 
-  const skyData = useMemo<SkyData>(() => {
-    try {
-      return computeSkyData(date, coords.lat, coords.lon)
-    } catch {
-      return FALLBACK_SKY_DATA
-    }
+  useEffect(() => {
+    let cancelled = false
+    setSkyData(null)
+    setTimeout(() => {
+      try {
+        const data = computeSkyData(date, coords.lat, coords.lon)
+        if (!cancelled) setSkyData(data)
+      } catch {
+        if (!cancelled) setSkyData(FALLBACK_SKY_DATA)
+      }
+    }, 0)
+    return () => { cancelled = true }
   }, [date, coords])
 
   useEffect(() => {
@@ -115,25 +128,52 @@ function ResultContent() {
     mapCanvasRef.current = canvas
   }, [])
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const source = mapCanvasRef.current
     if (!source) return
 
     setDownloading(true)
-    const poster = buildPosterCanvas(source, name1, name2, formattedDate)
-    const link = document.createElement("a")
-    link.download = `ceu-${name1.toLowerCase()}-${name2.toLowerCase()}.png`
-    link.href = poster.toDataURL("image/png")
-    link.click()
-    setDownloading(false)
+    try {
+      const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+      const link = document.createElement("a")
+      link.download = `ceu-${name1.toLowerCase()}-${name2.toLowerCase()}.png`
+      link.href = poster.toDataURL("image/png")
+      link.click()
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleShare = async () => {
-    const text = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${name1} & ${name2}`
+    const source = mapCanvasRef.current
+    const shareText = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${name1} & ${name2}`
+    const canShareFiles = typeof navigator.canShare === "function"
+
+    if (source && navigator.share && canShareFiles) {
+      try {
+        const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+        await new Promise<void>((resolve, reject) => {
+          poster.toBlob(async (blob) => {
+            if (!blob) { reject(new Error("blob null")); return }
+            const file = new File([blob], `ceu-${name1}-${name2}.png`, { type: "image/png" })
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ title: "Céu do Nosso Dia", files: [file] })
+            } else {
+              await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
+            }
+            resolve()
+          })
+        })
+        return
+      } catch {
+        // fall through to text share
+      }
+    }
+
     if (navigator.share) {
-      await navigator.share({ title: "Céu do Nosso Dia", text })
+      await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
     } else {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(shareText)
     }
   }
 
@@ -156,11 +196,18 @@ function ResultContent() {
           {/* Left Column - Star Map */}
           <div className="flex flex-col items-center text-center min-w-0">
             <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
-              <StarMapCanvas
-                skyData={skyData}
-                size={canvasSize}
-                onReady={handleCanvasReady}
-              />
+              {skyData ? (
+                <StarMapCanvas
+                  skyData={skyData}
+                  size={canvasSize}
+                  onReady={handleCanvasReady}
+                />
+              ) : (
+                <div
+                  className="rounded-full bg-muted/30 animate-pulse"
+                  style={{ width: canvasSize, height: canvasSize }}
+                />
+              )}
             </div>
             <h2 className="mt-6 font-serif text-2xl sm:text-3xl italic text-foreground">
               {name1} & {name2}
@@ -181,31 +228,37 @@ function ResultContent() {
               Cada estrela foi posicionada com precisão astronômica.
             </p>
 
+            {cityNotFound && (
+              <p className="text-xs text-amber-400/80 mb-4">
+                Cidade não reconhecida — exibindo mapa de São Paulo.
+              </p>
+            )}
+
             <Card className="bg-card/50 border-border/50 mb-6">
               <CardContent className="p-4 sm:p-6 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.dominantConstellation}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.dominantConstellation ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.moonPhase}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.moonPhase ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                    Estrela mais brilhante
+                    Planeta mais brilhante
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.brightestPlanet}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.brightestPlanet ?? "Nenhum visível"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData.season}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.season ?? "—"}</p>
                 </div>
               </CardContent>
             </Card>

@@ -5,7 +5,10 @@ import { getSeason } from "./season"
 import { findBrightestVisiblePlanet } from "./planets"
 import { computeVisibleStars } from "./stars"
 
-// 01:00 UTC ≈ 22:00 local time in UTC-3 (Brazil)
+// Fixed at 01:00 UTC ≈ 22:00 in UTC-3 (most of Brazil).
+// Cities in other offsets (e.g. Manaus UTC-4, Acre UTC-5) will see a slightly
+// different sky — up to ~15° drift per hour difference. For a poster product
+// this is acceptable; derive offset from coordinates for higher accuracy.
 const OBSERVATION_HOUR_UTC = 1
 
 function parseObservationDate(dateStr: string): Date {
