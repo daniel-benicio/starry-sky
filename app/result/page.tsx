@@ -1,75 +1,181 @@
-"use client";
+"use client"
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Download, Loader2, Share2, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { StarMapCanvas } from "@/components/star-map-canvas";
-import { StarBackground } from "@/components/star-background";
-import { generatePosterPng } from "@/lib/generate-poster";
-import { formatDate } from "@/lib/formatters";
+import { Suspense, useRef, useCallback, useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { Download, Loader2, Share2, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { StarMapCanvas } from "@/components/star-map-canvas"
+import { StarBackground } from "@/components/star-background"
+import { computeSkyData } from "@/lib/astronomy"
+import { geocodeCity } from "@/lib/geocoding"
+import type { SkyData, Coordinates } from "@/lib/types"
 
-const ASTRONOMICAL_DATA = {
-  constellation: "Órion",
-  moonPhase: "Lua Crescente 34%",
-  brightestStar: "Vênus",
+// --- Constants ---
+
+const POSTER_WIDTH  = 900
+const POSTER_HEIGHT = 1020
+
+const SAO_PAULO: Coordinates = { lat: -23.5505, lon: -46.6333, displayName: "São Paulo" }
+
+const FALLBACK_SKY_DATA: SkyData = {
+  stars: [],
+  lines: [],
+  moonPhase: "Lua Crescente",
+  brightestPlanet: "Vênus",
   season: "Verão",
-} as const;
+  dominantConstellation: "Órion",
+}
+
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+]
+
+// ---
+
+function formatDate(dateStr: string): string {
+  const [year, month, day] = dateStr.includes("/")
+    ? dateStr.split("/").reverse()
+    : dateStr.split("-")
+
+  return `${parseInt(day, 10)} de ${MONTH_NAMES[parseInt(month, 10) - 1]} de ${year}`
+}
+
+async function buildPosterCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  name1: string,
+  name2: string,
+  formattedDate: string,
+): Promise<HTMLCanvasElement> {
+  await document.fonts.ready
+
+  const poster = document.createElement("canvas")
+  poster.width  = POSTER_WIDTH
+  poster.height = POSTER_HEIGHT
+
+  const ctx = poster.getContext("2d")!
+  ctx.fillStyle = "#0a0a1a"
+  ctx.fillRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT)
+
+  ctx.drawImage(sourceCanvas, 0, 0, POSTER_WIDTH, POSTER_WIDTH)
+
+  ctx.textAlign = "center"
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
+  ctx.font = `italic 42px 'Playfair Display', Georgia, serif`
+  ctx.fillText(`${name1} & ${name2}`, POSTER_WIDTH / 2, POSTER_WIDTH + 52)
+
+  ctx.fillStyle = "rgba(196, 181, 253, 0.8)"
+  ctx.font = `20px 'Playfair Display', Georgia, serif`
+  ctx.fillText(formattedDate, POSTER_WIDTH / 2, POSTER_WIDTH + 92)
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.4)"
+  ctx.font = `italic 16px Georgia, serif`
+  ctx.fillText("Naquela noite, o universo já sabia.", POSTER_WIDTH / 2, POSTER_WIDTH + 126)
+
+  return poster
+}
+
+// ---
 
 function ResultContent() {
-  const searchParams = useSearchParams();
-  const posterFileRef = useRef<File | null>(null);
-  const canvasWrapperRef = useRef<HTMLDivElement>(null);
-  const [posterReady, setPosterReady] = useState(false);
-  const [canvasSize, setCanvasSize] = useState(400);
+  const searchParams    = useSearchParams()
+  const mapCanvasRef    = useRef<HTMLCanvasElement | null>(null)
+  const canvasWrapperRef = useRef<HTMLDivElement>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [canvasSize, setCanvasSize]   = useState(400)
+  const [skyData, setSkyData]         = useState<SkyData | null>(null)
 
-  const date = searchParams.get("date") || "14/02/2021";
-  const city = searchParams.get("city") || "São Paulo";
-  const name1 = searchParams.get("name1") || "Ana";
-  const name2 = searchParams.get("name2") || "Lucas";
-  const email = searchParams.get("email") || "ana@email.com";
+  const date  = searchParams.get("date")  ?? "2021-02-14"
+  const city  = searchParams.get("city")  ?? "São Paulo"
+  const name1 = searchParams.get("name1") ?? "Ana"
+  const name2 = searchParams.get("name2") ?? "Lucas"
+  const email = searchParams.get("email") ?? ""
+
+  const formattedDate = formatDate(date)
+  const rawCoords = useMemo(() => geocodeCity(city), [city])
+  const coords = rawCoords ?? SAO_PAULO
+  const cityNotFound = rawCoords === null
 
   useEffect(() => {
-    const el = canvasWrapperRef.current;
-    if (!el) return;
+    let cancelled = false
+    setSkyData(null)
+    setTimeout(() => {
+      try {
+        const data = computeSkyData(date, coords.lat, coords.lon)
+        if (!cancelled) setSkyData(data)
+      } catch {
+        if (!cancelled) setSkyData(FALLBACK_SKY_DATA)
+      }
+    }, 0)
+    return () => { cancelled = true }
+  }, [date, coords])
+
+  useEffect(() => {
+    const el = canvasWrapperRef.current
+    if (!el) return
     const ro = new ResizeObserver(([entry]) => {
-      setCanvasSize(Math.min(Math.floor(entry.contentRect.width), 400));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+      setCanvasSize(Math.min(Math.floor(entry.contentRect.width), 400))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
-  useEffect(() => {
-    generatePosterPng({ date, name1, name2, city, ...ASTRONOMICAL_DATA }).then(async (dataUrl) => {
-      const blob = await fetch(dataUrl).then((r) => r.blob());
-      posterFileRef.current = new File([blob], `ceu-${name1}-${name2}.png`, { type: "image/png" });
-      setPosterReady(true);
-    });
-  }, [date, name1, name2, city]);
+  const handleCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
+    mapCanvasRef.current = canvas
+  }, [])
 
-  function handleDownload() {
-    const file = posterFileRef.current;
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const handleDownload = async () => {
+    const source = mapCanvasRef.current
+    if (!source) return
+
+    setDownloading(true)
+    try {
+      const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+      const link = document.createElement("a")
+      link.download = `ceu-${name1.toLowerCase()}-${name2.toLowerCase()}.png`
+      link.href = poster.toDataURL("image/png")
+      link.click()
+    } finally {
+      setDownloading(false)
+    }
   }
 
-  function handleShare() {
-    const file = posterFileRef.current;
-    if (!file || !navigator.share) return;
-    navigator.share({ files: [file], title: "Céu do Nosso Dia" });
-  }
+  const handleShare = async () => {
+    const source = mapCanvasRef.current
+    const shareText = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${name1} & ${name2}`
+    const canShareFiles = typeof navigator.canShare === "function"
 
-  const formattedDate = formatDate(date);
+    if (source && navigator.share && canShareFiles) {
+      try {
+        const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+        await new Promise<void>((resolve, reject) => {
+          poster.toBlob(async (blob) => {
+            if (!blob) { reject(new Error("blob null")); return }
+            const file = new File([blob], `ceu-${name1}-${name2}.png`, { type: "image/png" })
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ title: "Céu do Nosso Dia", files: [file] })
+            } else {
+              await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
+            }
+            resolve()
+          })
+        })
+        return
+      } catch {
+        // fall through to text share
+      }
+    }
+
+    if (navigator.share) {
+      await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
+    } else {
+      await navigator.clipboard.writeText(shareText)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
@@ -86,18 +192,27 @@ function ResultContent() {
 
       <main className="relative z-10 container mx-auto px-6 py-8 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center max-w-6xl mx-auto">
+
           {/* Left Column - Star Map */}
           <div className="flex flex-col items-center text-center min-w-0">
             <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
-              <StarMapCanvas date={date} name1={name1} name2={name2} size={canvasSize} />
+              {skyData ? (
+                <StarMapCanvas
+                  skyData={skyData}
+                  size={canvasSize}
+                  onReady={handleCanvasReady}
+                />
+              ) : (
+                <div
+                  className="rounded-full bg-muted/30 animate-pulse"
+                  style={{ width: canvasSize, height: canvasSize }}
+                />
+              )}
             </div>
-
             <h2 className="mt-6 font-serif text-2xl sm:text-3xl italic text-foreground">
               {name1} & {name2}
             </h2>
-
             <p className="mt-2 text-sm text-muted-foreground">{formattedDate}</p>
-
             <p className="mt-4 font-serif italic text-muted-foreground text-sm max-w-xs">
               Naquela noite, o universo já sabia.
             </p>
@@ -108,11 +223,16 @@ function ResultContent() {
             <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-foreground mb-4">
               Seu mapa está pronto
             </h1>
-
             <p className="text-muted-foreground mb-6 leading-relaxed">
-              Aqui está o céu exato de {city} na noite de {formattedDate}. Cada
-              estrela foi posicionada com precisão astronômica.
+              Aqui está o céu exato de {coords.displayName} na noite de {formattedDate}.
+              Cada estrela foi posicionada com precisão astronômica.
             </p>
+
+            {cityNotFound && (
+              <p className="text-xs text-amber-400/80 mb-4">
+                Cidade não reconhecida — exibindo mapa de São Paulo.
+              </p>
+            )}
 
             <Card className="bg-card/50 border-border/50 mb-6">
               <CardContent className="p-4 sm:p-6 grid grid-cols-2 gap-3 sm:gap-4">
@@ -120,25 +240,25 @@ function ResultContent() {
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{ASTRONOMICAL_DATA.constellation}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.dominantConstellation ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{ASTRONOMICAL_DATA.moonPhase}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.moonPhase ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-                    Estrela mais brilhante
+                    Planeta mais brilhante
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{ASTRONOMICAL_DATA.brightestStar}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.brightestPlanet ?? "Nenhum visível"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{ASTRONOMICAL_DATA.season}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.season ?? "—"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -148,46 +268,41 @@ function ResultContent() {
                 size="lg"
                 className="w-full gap-2"
                 onClick={handleDownload}
-                disabled={!posterReady}
+                disabled={downloading}
               >
-                {!posterReady ? (
+                {downloading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                {!posterReady ? "Preparando pôster…" : "Baixar pôster (PNG)"}
+                {downloading ? "Gerando…" : "Baixar pôster (PNG)"}
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full gap-2 lg:hidden"
-                onClick={handleShare}
-                disabled={!posterReady}
-              >
+              <Button size="lg" variant="outline" className="w-full gap-2" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
                 Compartilhar
               </Button>
             </div>
 
-            <p className="text-sm text-muted-foreground text-center mb-6">
-              Também enviamos para {email}
-            </p>
+            {email && (
+              <p className="text-sm text-muted-foreground text-center mb-6">
+                Também enviamos para {email}
+              </p>
+            )}
 
             <Separator className="mb-6 bg-border/50" />
 
             <div className="text-center">
-              <p className="text-muted-foreground mb-3">
-                Gostou? Presenteie outra pessoa
-              </p>
+              <p className="text-muted-foreground mb-3">Gostou? Presenteie outra pessoa</p>
               <Button variant="ghost" asChild>
                 <Link href="/">Criar novo mapa</Link>
               </Button>
             </div>
           </div>
+
         </div>
       </main>
     </div>
-  );
+  )
 }
 
 export default function ResultPage() {
@@ -195,11 +310,11 @@ export default function ResultPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-muted-foreground">Carregando...</div>
+          <div className="text-muted-foreground">Calculando seu céu...</div>
         </div>
       }
     >
       <ResultContent />
     </Suspense>
-  );
+  )
 }
