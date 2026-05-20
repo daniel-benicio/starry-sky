@@ -2,3 +2,8 @@ node_modules/
 .claude
 .next/
 tsconfig.tsbuildinfo
+
+# Testes
+playwright-report/
+test-results/
+coverage/
