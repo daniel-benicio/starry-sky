@@ -29,7 +29,7 @@ test.describe("Página de resultado — mapa estelar", () => {
   })
 
   test("exibe informações astronômicas (fase da lua, estação)", async ({ page }) => {
-    await page.locator("canvas").waitFor({ timeout: 10_000 })
+    await page.locator("canvas:not([aria-hidden])").waitFor({ timeout: 10_000 })
     await expect(page.getByText(/fase da lua/i)).toBeVisible()
     await expect(page.getByText(/estação/i)).toBeVisible()
   })
