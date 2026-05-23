@@ -53,25 +53,27 @@ function newId() {
 export async function upsertUser(email: string, cpf: string): Promise<string> {
   const db = createServerClient()
 
-  const { data: existing } = await db
-    .from("users")
-    .select("id")
-    .eq("email", email)
-    .eq("is_active", true)
-    .maybeSingle()
-
-  if (existing) return existing.id
-
+  // Optimistic insert — avoids SELECT+INSERT race condition.
+  // On unique conflict (code 23505), the user already exists: fall back to SELECT.
   const id = newId()
-  const { error } = await db.from("users").insert({
-    id,
-    is_active: true,
-    state: "active",
-    email,
-    cpf,
+  const { error: insertErr } = await db.from("users").insert({
+    id, is_active: true, state: "active", email, cpf,
   })
-  if (error) throw new Error(`upsertUser: ${error.message}`)
-  return id
+
+  if (!insertErr) return id
+
+  if (insertErr.code === "23505") {
+    const { data, error: selectErr } = await db
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .eq("is_active", true)
+      .single()
+    if (selectErr || !data) throw new Error(`upsertUser: user not found after conflict`)
+    return data.id
+  }
+
+  throw new Error(`upsertUser: ${insertErr.message}`)
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
