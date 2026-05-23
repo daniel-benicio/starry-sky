@@ -55,7 +55,7 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order),
+        body: JSON.stringify({ ...order, cpf: fields.document }),
       })
 
       const data = await res.json()

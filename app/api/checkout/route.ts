@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { upsertUser, createOrder, createPayment, transitionPayment, transitionOrder } from "@/lib/supabase/db"
 
 export async function POST(req: NextRequest) {
-  const { date, city, email, name1, name2 } = await req.json()
+  const { date, city, email, name1, name2, cpf } = await req.json()
 
-  if (!email) {
+  if (!email || !cpf) {
     return NextResponse.json({ message: "Dados incompletos." }, { status: 400 })
   }
 
-  const userId    = await upsertUser(email, `${name1} ${name2}`.trim())
+  const userId    = await upsertUser(email, cpf)
   const orderId   = await createOrder({ userId, name1, name2, date, city })
   const paymentId = await createPayment({ orderId, amountCents: 2900 })
 

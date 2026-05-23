@@ -9,10 +9,10 @@ export type PaymentState = "created" | "confirmed" | "succeeded" | "failed" | "r
 interface UserRow {
   row_id: string
   id: string
-  email: string
-  name: string
-  state: UserState
   is_active: boolean
+  state: UserState
+  email: string
+  cpf: string
   created_at: string
 }
 
@@ -50,7 +50,7 @@ function newId() {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-export async function upsertUser(email: string, name: string): Promise<string> {
+export async function upsertUser(email: string, cpf: string): Promise<string> {
   const db = createServerClient()
 
   const { data: existing } = await db
@@ -65,10 +65,10 @@ export async function upsertUser(email: string, name: string): Promise<string> {
   const id = newId()
   const { error } = await db.from("users").insert({
     id,
-    email,
-    name,
-    state: "active",
     is_active: true,
+    state: "active",
+    email,
+    cpf,
   })
   if (error) throw new Error(`upsertUser: ${error.message}`)
   return id
