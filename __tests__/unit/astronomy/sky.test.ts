@@ -57,4 +57,32 @@ describe("computeSkyData", () => {
     const result = computeSkyData("2024-06-21", -23.5505, -46.6333)
     expect(result.dominantConstellation).toBeTruthy()
   })
+
+  // ── Correção de timezone (offset solar por longitude) ──────────────────────
+
+  it("São Paulo e Manaus produzem céus diferentes para a mesma data (offsets distintos)", () => {
+    // São Paulo UTC-3 (lon≈-47°) e Manaus UTC-4 (lon≈-60°) — 1h de diferença
+    const sp     = computeSkyData("2024-06-21", -23.5505, -46.6333)
+    const manaus = computeSkyData("2024-06-21", -3.1019,  -60.0250)
+    // Estrelas em posições diferentes — arrays de tamanhos distintos ou
+    // pelo menos o mapa não é idêntico
+    expect(sp.dominantConstellation).toBeTruthy()
+    expect(manaus.dominantConstellation).toBeTruthy()
+    // Os pontos das estrelas devem diferir entre as duas localizações
+    const spFirstStar     = sp.stars[0]
+    const manausFirstStar = manaus.stars[0]
+    if (spFirstStar && manausFirstStar) {
+      // Coordenadas de projeção ou quantidade de estrelas visíveis variam
+      const identical = spFirstStar.x === manausFirstStar.x &&
+                        spFirstStar.y === manausFirstStar.y
+      expect(identical).toBe(false)
+    }
+  })
+
+  it("Tóquio e São Paulo na mesma data têm céus completamente distintos", () => {
+    const sp    = computeSkyData("2024-06-21", -23.5505, -46.6333)
+    const tokyo = computeSkyData("2024-06-21",  35.6762, 139.6503)
+    // Hemisfério oposto e UTC+9 vs UTC-3 → céu totalmente diferente
+    expect(sp.season).not.toBe(tokyo.season)
+  })
 })

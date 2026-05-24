@@ -1,7 +1,26 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 import { POST } from "@/app/api/generate-result/route"
 import { verifyResultToken } from "@/lib/result-token"
+
+// ── Mock do Nominatim ─────────────────────────────────────────────────────────
+// Evita chamadas de rede reais nos testes; o comportamento do fallback
+// (geocoding estático) é testado separadamente nos testes de unidade.
+//
+// vi.mock é hoisted antes das variáveis — usamos vi.hoisted para definir
+// o mock fn antes do hoist e reutilizá-lo nos testes.
+
+const { mockNominatim, NOMINATIM_COORDS } = vi.hoisted(() => {
+  const NOMINATIM_COORDS = { lat: -23.5505, lon: -46.6333, displayName: "São Paulo" }
+  const mockNominatim    = vi.fn().mockResolvedValue(NOMINATIM_COORDS)
+  return { mockNominatim, NOMINATIM_COORDS }
+})
+
+vi.mock("@/lib/nominatim", () => ({
+  nominatimGeocode: mockNominatim,
+}))
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const VALID_BODY = {
   date:  "2024-02-14",
@@ -29,6 +48,10 @@ function extractToken(res: Response): string | null {
 describe("POST /api/generate-result", () => {
   beforeEach(() => {
     delete process.env.RESULT_SECRET
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
   })
 
   // ── resposta JSON ──────────────────────────────────────────────────────────
@@ -110,6 +133,43 @@ describe("POST /api/generate-result", () => {
     expect(data?.email).toBe(VALID_BODY.email)
     expect(data?.name1).toBe(VALID_BODY.name1)
     expect(data?.name2).toBe(VALID_BODY.name2)
+  })
+
+  it("o token contém lat e lon quando Nominatim resolve a cidade", async () => {
+    const res  = await POST(makeRequest(VALID_BODY))
+    const data = await verifyResultToken(extractToken(res)!)
+    expect(data?.lat).toBeCloseTo(NOMINATIM_COORDS.lat)
+    expect(data?.lon).toBeCloseTo(NOMINATIM_COORDS.lon)
+  })
+
+  it("o token não tem lat/lon quando city está vazia", async () => {
+    const { city: _c, email: _e, ...semCity } = VALID_BODY
+    const res  = await POST(makeRequest(semCity))
+    const data = await verifyResultToken(extractToken(res)!)
+    expect(data?.lat).toBeUndefined()
+    expect(data?.lon).toBeUndefined()
+  })
+
+  it("o token ainda é válido quando Nominatim falha (usa fallback estático)", async () => {
+    mockNominatim.mockResolvedValueOnce(null)
+
+    const res  = await POST(makeRequest(VALID_BODY))
+    const data = await verifyResultToken(extractToken(res)!)
+    // geocodeCity("São Paulo") resolve via tabela estática
+    expect(data).not.toBeNull()
+    expect(data?.lat).toBeCloseTo(-23.5505)
+  })
+
+  it("o token ainda é válido quando Nominatim e fallback estático falham", async () => {
+    mockNominatim.mockResolvedValueOnce(null)
+
+    const res  = await POST(makeRequest({ ...VALID_BODY, city: "CidadeInexistenteXYZ" }))
+    const data = await verifyResultToken(extractToken(res)!)
+    // Token gerado sem coords — não quebra o fluxo
+    expect(res.status).toBe(200)
+    expect(data).not.toBeNull()
+    expect(data?.lat).toBeUndefined()
+    expect(data?.lon).toBeUndefined()
   })
 
   it("tokens gerados para pedidos distintos são diferentes", async () => {
