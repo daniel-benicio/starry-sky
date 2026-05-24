@@ -150,7 +150,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
       <main className="relative z-10 container mx-auto px-6 py-8 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center max-w-6xl mx-auto">
 
-          {/* ── Coluna esquerda: mapa + preview do pôster ───────────────── */}
+          {/* ── Coluna esquerda: mapa + preview + customização ──────────── */}
           <div className="flex flex-col items-center text-center min-w-0">
 
             <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
@@ -170,7 +170,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
 
             {/*
               Preview do texto do pôster — atualiza em tempo real conforme
-              o usuário escolhe fonte e frase no painel da direita.
+              o usuário escolhe fonte e frase.
             */}
             <h2
               className="mt-6 text-2xl sm:text-3xl text-foreground transition-all duration-300"
@@ -185,11 +185,21 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
             <p className="mt-2 text-sm text-muted-foreground">{formattedDate}</p>
 
             <p
-              className="mt-3 text-muted-foreground/70 text-sm max-w-xs transition-all duration-300 min-h-[1.5rem]"
+              className="mt-3 text-base text-muted-foreground/80 max-w-xs transition-all duration-300 min-h-[1.75rem]"
               style={{ fontFamily: activeFont.fontFamily, fontStyle: "italic" }}
             >
               {customization.quote}
             </p>
+
+            {/* Painel de customização — fica abaixo do preview */}
+            <div className="mt-6 w-full max-w-[400px] text-left">
+              <PosterCustomizer
+                customization={customization}
+                onFontChange={setFont}
+                onQuoteChange={setQuote}
+                onQuoteReset={resetQuote}
+              />
+            </div>
 
           </div>
 
@@ -247,16 +257,6 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
                 </div>
               </CardContent>
             </Card>
-
-            {/* Painel de customização */}
-            <div className="mb-5">
-              <PosterCustomizer
-                customization={customization}
-                onFontChange={setFont}
-                onQuoteChange={setQuote}
-                onQuoteReset={resetQuote}
-              />
-            </div>
 
             {/* Ações */}
             <div className="flex flex-col gap-3 mb-4">
