@@ -11,7 +11,7 @@ import { StarBackground } from "@/components/star-background"
 import { PosterCustomizer } from "@/components/poster-customizer"
 import { computeSkyData } from "@/lib/astronomy"
 import { geocodeCity } from "@/lib/geocoding"
-import { buildPosterCanvas } from "@/lib/build-poster-canvas"
+import { buildPosterCanvas, type PosterSkyInfo } from "@/lib/build-poster-canvas"
 import { usePosterCustomization } from "@/hooks/use-poster-customization"
 import { getFontOption } from "@/lib/poster-customization"
 import type { SkyData, Coordinates } from "@/lib/types"
@@ -84,13 +84,23 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
     mapCanvasRef.current = canvas
   }, [])
 
+  // ── Informações astronômicas para o pôster ────────────────────────────────
+  const posterSkyInfo: PosterSkyInfo | undefined = skyData
+    ? {
+        dominantConstellation: skyData.dominantConstellation,
+        moonPhase:             skyData.moonPhase,
+        brightestPlanet:       skyData.brightestPlanet ?? "Nenhum visível",
+        season:                skyData.season,
+      }
+    : undefined
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleDownload = async () => {
     const source = mapCanvasRef.current
     if (!source) return
     setDownloading(true)
     try {
-      const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization)
+      const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization, posterSkyInfo)
       const link   = document.createElement("a")
       link.download = `ceu-${displayName1.toLowerCase().replace(/\s/g, "-")}-${displayName2.toLowerCase().replace(/\s/g, "-")}.png`
       link.href = poster.toDataURL("image/png")
@@ -107,7 +117,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
 
     if (source && navigator.share && canShareFiles) {
       try {
-        const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization)
+        const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization, posterSkyInfo)
         await new Promise<void>((resolve, reject) => {
           poster.toBlob(async (blob) => {
             if (!blob) { reject(new Error("blob null")); return }
