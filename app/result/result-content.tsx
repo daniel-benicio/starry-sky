@@ -8,16 +8,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { StarMapCanvas } from "@/components/star-map-canvas"
 import { StarBackground } from "@/components/star-background"
+import { PosterCustomizer } from "@/components/poster-customizer"
 import { computeSkyData } from "@/lib/astronomy"
 import { geocodeCity } from "@/lib/geocoding"
+import { buildPosterCanvas } from "@/lib/build-poster-canvas"
+import { usePosterCustomization } from "@/hooks/use-poster-customization"
+import { getFontOption } from "@/lib/poster-customization"
 import type { SkyData, Coordinates } from "@/lib/types"
 import type { ResultTokenData } from "@/lib/result-token"
 import { formatDate, getFirstAndLastName } from "@/lib/formatters"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const POSTER_WIDTH  = 900
-const POSTER_HEIGHT = 1020
 
 const SAO_PAULO: Coordinates = { lat: -23.5505, lon: -46.6333, displayName: "São Paulo" }
 
@@ -30,45 +31,6 @@ const FALLBACK_SKY_DATA: SkyData = {
   dominantConstellation: "Órion",
 }
 
-async function buildPosterCanvas(
-  sourceCanvas: HTMLCanvasElement,
-  name1: string,
-  name2: string,
-  formattedDate: string,
-): Promise<HTMLCanvasElement> {
-  await document.fonts.ready
-
-  const poster = document.createElement("canvas")
-  poster.width  = POSTER_WIDTH
-  poster.height = POSTER_HEIGHT
-
-  const ctx = poster.getContext("2d")!
-  ctx.fillStyle = "#0a0a1a"
-  ctx.fillRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT)
-
-  ctx.drawImage(sourceCanvas, 0, 0, POSTER_WIDTH, POSTER_WIDTH)
-
-  ctx.textAlign = "center"
-
-  // Truncate to first + last name before drawing to avoid overflow
-  const displayName1 = getFirstAndLastName(name1)
-  const displayName2 = getFirstAndLastName(name2)
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
-  ctx.font = `italic 42px 'Playfair Display', Georgia, serif`
-  ctx.fillText(`${displayName1} & ${displayName2}`, POSTER_WIDTH / 2, POSTER_WIDTH + 52)
-
-  ctx.fillStyle = "rgba(196, 181, 253, 0.8)"
-  ctx.font = `20px 'Playfair Display', Georgia, serif`
-  ctx.fillText(formattedDate, POSTER_WIDTH / 2, POSTER_WIDTH + 92)
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.4)"
-  ctx.font = `italic 16px Georgia, serif`
-  ctx.fillText("Naquela noite, o universo já sabia.", POSTER_WIDTH / 2, POSTER_WIDTH + 126)
-
-  return poster
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ResultContent({ date, city, name1, name2, email }: ResultTokenData) {
@@ -78,15 +40,21 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
   const [canvasSize, setCanvasSize]   = useState(400)
   const [skyData, setSkyData]         = useState<SkyData | null>(null)
 
+  // ── Customização do pôster ─────────────────────────────────────────────────
+  const { customization, setFont, setQuote, resetQuote } = usePosterCustomization()
+  const activeFont = getFontOption(customization.fontId)
+
+  // ── Dados do pedido ────────────────────────────────────────────────────────
   const formattedDate = formatDate(date)
   const rawCoords     = useMemo(() => geocodeCity(city), [city])
   const coords        = rawCoords ?? SAO_PAULO
   const cityNotFound  = rawCoords === null
 
-  // Truncated names for display — avoids overflows in title / poster
+  // Primeiro + último nome para evitar overflow na imagem
   const displayName1 = getFirstAndLastName(name1)
   const displayName2 = getFirstAndLastName(name2)
 
+  // ── Sky data ───────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     setSkyData(null)
@@ -101,6 +69,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
     return () => { cancelled = true }
   }, [date, coords])
 
+  // ── Canvas resize ──────────────────────────────────────────────────────────
   useEffect(() => {
     const el = canvasWrapperRef.current
     if (!el) return
@@ -115,13 +84,13 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
     mapCanvasRef.current = canvas
   }, [])
 
+  // ── Actions ────────────────────────────────────────────────────────────────
   const handleDownload = async () => {
     const source = mapCanvasRef.current
     if (!source) return
-
     setDownloading(true)
     try {
-      const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+      const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization)
       const link   = document.createElement("a")
       link.download = `ceu-${displayName1.toLowerCase().replace(/\s/g, "-")}-${displayName2.toLowerCase().replace(/\s/g, "-")}.png`
       link.href = poster.toDataURL("image/png")
@@ -132,13 +101,13 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
   }
 
   const handleShare = async () => {
-    const source    = mapCanvasRef.current
-    const shareText = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${displayName1} & ${displayName2}`
+    const source        = mapCanvasRef.current
+    const shareText     = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${displayName1} & ${displayName2}`
     const canShareFiles = typeof navigator.canShare === "function"
 
     if (source && navigator.share && canShareFiles) {
       try {
-        const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+        const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization)
         await new Promise<void>((resolve, reject) => {
           poster.toBlob(async (blob) => {
             if (!blob) { reject(new Error("blob null")); return }
@@ -164,6 +133,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <StarBackground />
@@ -180,8 +150,9 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
       <main className="relative z-10 container mx-auto px-6 py-8 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center max-w-6xl mx-auto">
 
-          {/* Left Column - Star Map */}
+          {/* ── Coluna esquerda: mapa + preview do pôster ───────────────── */}
           <div className="flex flex-col items-center text-center min-w-0">
+
             <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
               {skyData ? (
                 <StarMapCanvas
@@ -196,17 +167,35 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
                 />
               )}
             </div>
-            <h2 className="mt-6 font-serif text-2xl sm:text-3xl italic text-foreground">
+
+            {/*
+              Preview do texto do pôster — atualiza em tempo real conforme
+              o usuário escolhe fonte e frase no painel da direita.
+            */}
+            <h2
+              className="mt-6 text-2xl sm:text-3xl text-foreground transition-all duration-300"
+              style={{
+                fontFamily: activeFont.fontFamily,
+                fontStyle:  activeFont.style,
+              }}
+            >
               {displayName1} & {displayName2}
             </h2>
+
             <p className="mt-2 text-sm text-muted-foreground">{formattedDate}</p>
-            <p className="mt-4 font-serif italic text-muted-foreground text-sm max-w-xs">
-              Naquela noite, o universo já sabia.
+
+            <p
+              className="mt-3 text-muted-foreground/70 text-sm max-w-xs transition-all duration-300 min-h-[1.5rem]"
+              style={{ fontFamily: activeFont.fontFamily, fontStyle: "italic" }}
+            >
+              {customization.quote}
             </p>
+
           </div>
 
-          {/* Right Column - Details */}
+          {/* ── Coluna direita: detalhes + customização + ações ─────────── */}
           <div className="flex flex-col min-w-0">
+
             <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-foreground mb-4">
               Seu mapa está pronto
             </h1>
@@ -221,35 +210,55 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
               </p>
             )}
 
-            <Card className="bg-card/50 border-border/50 mb-6">
+            {/* Dados astronômicos */}
+            <Card className="bg-card/50 border-border/50 mb-5">
               <CardContent className="p-4 sm:p-6 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Constelação visível
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.dominantConstellation ?? "—"}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {skyData?.dominantConstellation ?? "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Fase da lua
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.moonPhase ?? "—"}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {skyData?.moonPhase ?? "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Planeta mais brilhante
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.brightestPlanet ?? "Nenhum visível"}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {skyData?.brightestPlanet ?? "Nenhum visível"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     Estação
                   </p>
-                  <p className="text-foreground font-medium text-sm sm:text-base">{skyData?.season ?? "—"}</p>
+                  <p className="text-foreground font-medium text-sm sm:text-base">
+                    {skyData?.season ?? "—"}
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Painel de customização */}
+            <div className="mb-5">
+              <PosterCustomizer
+                customization={customization}
+                onFontChange={setFont}
+                onQuoteChange={setQuote}
+                onQuoteReset={resetQuote}
+              />
+            </div>
+
+            {/* Ações */}
             <div className="flex flex-col gap-3 mb-4">
               <Button
                 size="lg"
@@ -284,6 +293,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
                 <Link href="/">Criar novo mapa</Link>
               </Button>
             </div>
+
           </div>
 
         </div>

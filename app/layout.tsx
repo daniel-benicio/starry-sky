@@ -1,17 +1,34 @@
 import type { Metadata } from 'next'
-import { Playfair_Display, Inter } from 'next/font/google'
+import { Playfair_Display, Inter, Dancing_Script, Lora, Cormorant_Garamond } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const playfair = Playfair_Display({ 
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: '--font-serif'
-});
+  variable: "--font-serif",
+})
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
-  variable: '--font-sans'
-});
+  variable: "--font-sans",
+})
+
+// Fontes extras para customização do pôster
+const dancing = Dancing_Script({
+  subsets: ["latin"],
+  variable: "--font-dancing",
+})
+
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-lora",
+})
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight:  ["400", "600"],
+  variable: "--font-cormorant",
+})
 
 export const metadata: Metadata = {
   title: 'Céu do Nosso Dia | O céu na noite em que tudo começou',
@@ -43,7 +60,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="bg-background">
-      <body suppressHydrationWarning className={`${playfair.variable} ${inter.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${playfair.variable} ${inter.variable} ${dancing.variable} ${lora.variable} ${cormorant.variable} font-sans antialiased`}>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
