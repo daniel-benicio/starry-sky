@@ -1,5 +1,5 @@
 import { seededRandom, dateToSeed, drawStarMap } from "@/lib/star-map";
-import { formatDate } from "@/lib/formatters";
+import { formatDate, getFirstAndLastName } from "@/lib/formatters";
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -111,7 +111,9 @@ export async function generatePosterPng(data: PosterData): Promise<string> {
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(`${data.name1} & ${data.name2}`, W / 2, NAMES_Y);
+  const displayName1 = getFirstAndLastName(data.name1);
+  const displayName2 = getFirstAndLastName(data.name2);
+  ctx.fillText(`${displayName1} & ${displayName2}`, W / 2, NAMES_Y);
 
   ctx.font = '32px "Playfair Display", Georgia, serif';
   ctx.fillStyle = "rgba(196,181,253,0.85)";

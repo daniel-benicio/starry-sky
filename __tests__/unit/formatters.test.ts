@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { formatCardNumber, formatExpiry, formatCpf, formatDate } from "@/lib/formatters"
+import { formatCardNumber, formatExpiry, formatCpf, formatDate, getFirstAndLastName } from "@/lib/formatters"
 
 describe("formatCardNumber", () => {
   it("formata 16 dígitos em grupos de 4", () => {
@@ -103,5 +103,39 @@ describe("formatDate", () => {
 
   it("formata corretamente para fevereiro", () => {
     expect(formatDate("2000-02-14")).toBe("14 de fevereiro de 2000")
+  })
+})
+
+describe("getFirstAndLastName", () => {
+  it("retorna o nome inalterado quando há apenas uma palavra", () => {
+    expect(getFirstAndLastName("Lucas")).toBe("Lucas")
+  })
+
+  it("retorna o nome inalterado quando há exatamente dois nomes", () => {
+    expect(getFirstAndLastName("Ana Costa")).toBe("Ana Costa")
+  })
+
+  it("extrai primeiro e último nome quando há um nome do meio", () => {
+    expect(getFirstAndLastName("João Carlos Silva")).toBe("João Silva")
+  })
+
+  it("extrai primeiro e último nome em nome composto longo", () => {
+    expect(getFirstAndLastName("Maria Fernanda Costa Pereira")).toBe("Maria Pereira")
+  })
+
+  it("remove espaços extras nas bordas", () => {
+    expect(getFirstAndLastName("  Ana Costa  ")).toBe("Ana Costa")
+  })
+
+  it("lida com múltiplos espaços internos como separadores únicos", () => {
+    expect(getFirstAndLastName("Ana   Costa")).toBe("Ana Costa")
+  })
+
+  it("retorna string vazia para string vazia", () => {
+    expect(getFirstAndLastName("")).toBe("")
+  })
+
+  it("retorna string vazia para string só com espaços", () => {
+    expect(getFirstAndLastName("   ")).toBe("")
   })
 })

@@ -9,6 +9,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
+// Mock global fetch — the hook calls /api/generate-result before redirecting
+const mockFetch = vi.fn(() =>
+  Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) } as Response)
+)
+vi.stubGlobal("fetch", mockFetch)
+
 const ORDER: OrderData = {
   date: "2024-02-14",
   city: "São Paulo",
@@ -98,7 +104,12 @@ describe("useCheckoutForm", () => {
     await act(async () => {
       await result.current.onSubmit(fakeEvent)
     })
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("/result"))
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("email=ana%40email.com"))
+    // O cookie é gerado server-side via /api/generate-result;
+    // o redirect vai para /result sem query params.
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/generate-result",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(mockPush).toHaveBeenCalledWith("/result")
   })
 })

@@ -20,7 +20,7 @@ export default function Home() {
       name1: data.name1,
       name2: data.name2,
     })
-    router.push(`/result?${params.toString()}`)
+    router.push(`/pagamento?${params.toString()}`)
   }
 
   return (
