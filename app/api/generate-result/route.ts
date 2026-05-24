@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createResultToken } from "@/lib/result-token"
 import type { ResultTokenData } from "@/lib/result-token"
+import { nominatimGeocode } from "@/lib/nominatim"
+import { geocodeCity } from "@/lib/geocoding"
 
 /**
  * POST /api/generate-result
  *
- * Called by the checkout flow after a successful payment.
- * Creates a signed token with the order data and sets it as an HttpOnly cookie
- * so only the result page — accessed right after payment — can be loaded.
+ * Chamado pelo checkout após pagamento confirmado.
+ *
+ * Resolve as coordenadas da cidade em duas camadas:
+ *   1. Nominatim (OpenStreetMap) — cobertura global, sem custo
+ *   2. Fallback: tabela estática local (geocoding.ts)
+ *
+ * As coordenadas resolvidas ficam gravadas no token assinado, então a
+ * página /result as lê diretamente sem nenhuma chamada de rede adicional.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -18,12 +25,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Dados incompletos." }, { status: 400 })
     }
 
+    const resolvedCity = city ?? ""
+
+    // ── Geocodificação: Nominatim → fallback estático ─────────────────────
+    let lat: number | undefined
+    let lon: number | undefined
+
+    if (resolvedCity) {
+      const coords = (await nominatimGeocode(resolvedCity)) ?? geocodeCity(resolvedCity)
+      if (coords) {
+        lat = coords.lat
+        lon = coords.lon
+      }
+    }
+
     const token = await createResultToken({
       date,
-      city:  city  ?? "",
+      city:  resolvedCity,
       email: email ?? "",
       name1,
       name2,
+      lat,
+      lon,
     })
 
     const response = NextResponse.json({ success: true })
@@ -32,7 +55,7 @@ export async function POST(req: NextRequest) {
       secure:   process.env.NODE_ENV === "production",
       sameSite: "strict",
       path:     "/result",
-      maxAge:   60 * 60, // 1 hour — enough to download / share the poster
+      maxAge:   60 * 60, // 1 hora — suficiente para baixar / compartilhar o pôster
     })
     return response
   } catch {
