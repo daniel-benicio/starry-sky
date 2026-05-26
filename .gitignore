@@ -4,3 +4,8 @@ node_modules/
 tsconfig.tsbuildinfo
 .env
 .env.local
+
+# Testes
+playwright-report/
+test-results/
+coverage/

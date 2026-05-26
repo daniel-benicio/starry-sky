@@ -73,6 +73,7 @@ const CITY_COORDINATES: Record<string, Coordinates> = {
 
 export function geocodeCity(input: string): Coordinates | null {
   const normalized = input.toLowerCase().trim().replace(/,.*$/, "").trim()
+  if (!normalized) return null
 
   const exact = CITY_COORDINATES[normalized]
   if (exact) return exact
