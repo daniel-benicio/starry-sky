@@ -41,8 +41,9 @@ export function PosterCustomizer({
             const active = customization.fontId === font.id
             return (
               <button
+                type="button"
                 key={font.id}
-                onClick={() => onFontChange(font.id as FontId)}
+                onClick={() => onFontChange(font.id)}
                 style={{ fontFamily: font.fontFamily }}
                 className={[
                   "px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 cursor-pointer",
@@ -69,6 +70,7 @@ export function PosterCustomizer({
 
           {!quoteIsDefault && (
             <button
+              type="button"
               onClick={onQuoteReset}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
               aria-label="Restaurar frase padrão"

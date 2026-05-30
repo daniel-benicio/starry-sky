@@ -69,6 +69,7 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
       }
 
       router.push("/result")
+      setIsLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao processar pagamento. Tente novamente.")
       setIsLoading(false)

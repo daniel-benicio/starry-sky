@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
 import { POST } from "@/app/api/generate-result/route"
 import { verifyResultToken } from "@/lib/result-token"
@@ -26,11 +26,17 @@ function extractToken(res: Response): string | null {
   return match ? match[1] : null
 }
 
-describe("POST /api/generate-result", () => {
-  beforeEach(() => {
-    delete process.env.RESULT_SECRET
-  })
+let savedSecret: string | undefined
+beforeEach(() => {
+  savedSecret = process.env.RESULT_SECRET
+  process.env.RESULT_SECRET ??= "test-secret"
+})
+afterEach(() => {
+  if (savedSecret === undefined) delete process.env.RESULT_SECRET
+  else process.env.RESULT_SECRET = savedSecret
+})
 
+describe("POST /api/generate-result", () => {
   // ── resposta JSON ──────────────────────────────────────────────────────────
 
   it("retorna 200 com { success: true } para dados completos", async () => {
