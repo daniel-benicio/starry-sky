@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { NextRequest } from "next/server"
-import { proxy } from "@/proxy"
+import proxy from "@/proxy"
 import { createResultToken } from "@/lib/result-token"
 
 const SAMPLE_DATA = {
