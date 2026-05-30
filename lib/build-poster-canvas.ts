@@ -1,14 +1,11 @@
-"use client"
-
 /**
- * Browser-only utility — gera o canvas do pôster para download/share.
+ * @browser-only — gera o canvas do pôster para download/share.
  *
  * Recebe o canvas do mapa estelar já renderizado e monta a imagem
  * final com os textos, aplicando as opções de customização do usuário.
  */
 
 import { getFontOption, DEFAULT_CUSTOMIZATION, type PosterCustomization } from "@/lib/poster-customization"
-import { getFirstAndLastName } from "@/lib/formatters"
 
 // ─── Dimensões ─────────────────────────────────────────────────────────────────
 // Proporção 3:4 → espaço para mapa (900px) + bloco de texto (240px) + grade (208px) + margens
@@ -39,6 +36,25 @@ export interface PosterSkyInfo {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Renders text at (x, y), shrinking font-size until it fits within maxWidth. */
+function fillTextFit(
+  ctx:          CanvasRenderingContext2D,
+  text:         string,
+  x:            number,
+  y:            number,
+  maxWidth:     number,
+  baseFont:     string,
+  baseFontSize: number,
+): void {
+  let fontSize = baseFontSize
+  ctx.font = baseFont.replace(/\d+px/, `${fontSize}px`)
+  while (ctx.measureText(text).width > maxWidth && fontSize > 10) {
+    fontSize -= 1
+    ctx.font = baseFont.replace(/\d+px/, `${fontSize}px`)
+  }
+  ctx.fillText(text, x, y)
+}
+
 /** Garante que a fonte está carregada antes de usá-la no canvas. */
 async function ensureFontLoaded(style: string, size: number, family: string): Promise<void> {
   const primaryFamily = family.split(",")[0].replace(/['"]/g, "").trim()
@@ -52,12 +68,12 @@ async function ensureFontLoaded(style: string, size: number, family: string): Pr
 // ─── Builder ───────────────────────────────────────────────────────────────────
 
 export async function buildPosterCanvas(
-  sourceCanvas:  HTMLCanvasElement,
-  name1:         string,
-  name2:         string,
-  formattedDate: string,
-  customization: PosterCustomization = DEFAULT_CUSTOMIZATION,
-  skyInfo?:      PosterSkyInfo,
+  sourceCanvas:   HTMLCanvasElement,
+  displayName1:   string,
+  displayName2:   string,
+  formattedDate:  string,
+  customization:  PosterCustomization = DEFAULT_CUSTOMIZATION,
+  skyInfo?:       PosterSkyInfo,
 ): Promise<HTMLCanvasElement> {
   const font = getFontOption(customization.fontId)
 
@@ -91,12 +107,16 @@ export async function buildPosterCanvas(
   ctx.textBaseline = "alphabetic"
 
   // ── Nomes ──────────────────────────────────────────────────────────────────
-  const displayName1 = getFirstAndLastName(name1)
-  const displayName2 = getFirstAndLastName(name2)
-
   ctx.fillStyle = "rgba(255, 255, 255, 0.92)"
-  ctx.font      = `${font.style} 42px ${font.fontFamily}`
-  ctx.fillText(`${displayName1} & ${displayName2}`, POSTER_W / 2, NAMES_Y)
+  fillTextFit(
+    ctx,
+    `${displayName1} & ${displayName2}`,
+    POSTER_W / 2,
+    NAMES_Y,
+    POSTER_W * 0.88,
+    `${font.style} 42px ${font.fontFamily}`,
+    42,
+  )
 
   // ── Data ───────────────────────────────────────────────────────────────────
   ctx.fillStyle = "rgba(196, 181, 253, 0.80)"

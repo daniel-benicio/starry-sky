@@ -38,6 +38,7 @@ export async function nominatimGeocode(city: string): Promise<Coordinates | null
   url.searchParams.set("format",          "json")
   url.searchParams.set("limit",           "1")
   url.searchParams.set("accept-language", "pt-BR,pt")
+  url.searchParams.set("countrycode",     "br")
 
   try {
     const controller = new AbortController()

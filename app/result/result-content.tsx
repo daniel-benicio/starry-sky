@@ -116,7 +116,7 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
     if (!source) return
     setDownloading(true)
     try {
-      const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization, posterSkyInfo)
+      const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate, customization, posterSkyInfo)
       const link   = document.createElement("a")
       link.download = `ceu-${displayName1.toLowerCase().replace(/\s/g, "-")}-${displayName2.toLowerCase().replace(/\s/g, "-")}.png`
       link.href = poster.toDataURL("image/png")
@@ -133,7 +133,7 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
 
     if (source && navigator.share && canShareFiles) {
       try {
-        const poster = await buildPosterCanvas(source, name1, name2, formattedDate, customization, posterSkyInfo)
+        const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate, customization, posterSkyInfo)
         await new Promise<void>((resolve, reject) => {
           poster.toBlob(async (blob) => {
             if (!blob) { reject(new Error("blob null")); return }
@@ -290,7 +290,7 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
                 size="lg"
                 className="w-full gap-2"
                 onClick={handleDownload}
-                disabled={downloading}
+                disabled={downloading || !skyData}
               >
                 {downloading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -304,12 +304,6 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
                 Compartilhar
               </Button>
             </div>
-
-            {email && (
-              <p className="text-sm text-muted-foreground text-center mb-6">
-                Também enviamos para {email}
-              </p>
-            )}
 
             <Separator className="mb-6 bg-border/50" />
 

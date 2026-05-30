@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { createResultToken, verifyResultToken } from "@/lib/result-token"
 import type { ResultTokenData } from "@/lib/result-token"
 
@@ -12,8 +12,12 @@ const SAMPLE: ResultTokenData = {
 
 // Salva / restaura RESULT_SECRET entre testes que o modificam
 let savedSecret: string | undefined
-beforeEach(() => { savedSecret = process.env.RESULT_SECRET })
+beforeEach(() => {
+  savedSecret = process.env.RESULT_SECRET
+  process.env.RESULT_SECRET ??= "test-secret"
+})
 afterEach(() => {
+  vi.useRealTimers()
   if (savedSecret === undefined) delete process.env.RESULT_SECRET
   else process.env.RESULT_SECRET = savedSecret
 })
@@ -38,6 +42,9 @@ describe("createResultToken", () => {
   })
 
   it("a assinatura muda quando o secret muda — mesmos dados, chaves diferentes", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"))
+
     process.env.RESULT_SECRET = "secret-A"
     const tokenA = await createResultToken(SAMPLE)
 
@@ -105,5 +112,29 @@ describe("verifyResultToken", () => {
     const badPayload = btoa("isso não é json {{{")
     const fakeToken  = `${badPayload}.fakesig`
     expect(await verifyResultToken(fakeToken)).toBeNull()
+  })
+
+  it("retorna null para token expirado", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"))
+    const token = await createResultToken(SAMPLE)
+
+    // Avança 2 horas — token expira em 1 hora
+    vi.setSystemTime(new Date("2024-01-01T02:00:00Z"))
+    expect(await verifyResultToken(token)).toBeNull()
+  })
+
+  it("retorna null quando RESULT_SECRET não está configurado", async () => {
+    delete process.env.RESULT_SECRET
+    const token = await createResultToken({ ...SAMPLE })
+      .catch(() => "dummy.sig")
+    expect(await verifyResultToken(token)).toBeNull()
+  })
+})
+
+describe("createResultToken — erros de configuração", () => {
+  it("lança erro quando RESULT_SECRET não está configurado", async () => {
+    delete process.env.RESULT_SECRET
+    await expect(createResultToken(SAMPLE)).rejects.toThrow("RESULT_SECRET")
   })
 })

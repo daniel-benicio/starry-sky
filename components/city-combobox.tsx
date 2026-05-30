@@ -15,9 +15,12 @@ import {
   PopoverContent,
   PopoverAnchor,
 } from "@/components/ui/popover"
-import type { Municipio } from "@/lib/municipios-br"
-
 // ─── Types ─────────────────────────────────────────────────────────────────
+
+interface Municipio {
+  nome: string
+  uf:   string
+}
 
 interface CityComboboxProps {
   value:    string
@@ -89,8 +92,9 @@ export function CityCombobox({ value, onChange, required, id }: CityComboboxProp
     if (municipios !== null) return
     setLoading(true)
     try {
-      const { MUNICIPIOS } = await import("@/lib/municipios-br")
-      setMunicipios(MUNICIPIOS as Municipio[])
+      const res  = await fetch("/municipios-br.json")
+      const data = await res.json() as Municipio[]
+      setMunicipios(data)
     } finally {
       setLoading(false)
     }

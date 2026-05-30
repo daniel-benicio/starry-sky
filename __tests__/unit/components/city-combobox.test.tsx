@@ -1,18 +1,25 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeAll } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { CityCombobox } from "@/components/city-combobox"
 
-// ── Mock dos municípios ───────────────────────────────────────────────────────
-vi.mock("@/lib/municipios-br", () => ({
-  MUNICIPIOS: [
-    { nome: "São Paulo",         uf: "SP" },
-    { nome: "Santos",            uf: "SP" },
-    { nome: "Santo André",       uf: "SP" },
-    { nome: "Curitiba",          uf: "PR" },
-    { nome: "Florianópolis",     uf: "SC" },
-    { nome: "Juazeiro do Norte", uf: "CE" },
-  ],
-}))
+// ── Mock do fetch de municípios ───────────────────────────────────────────────
+const MOCK_MUNICIPIOS = [
+  { nome: "São Paulo",         uf: "SP" },
+  { nome: "Santos",            uf: "SP" },
+  { nome: "Santo André",       uf: "SP" },
+  { nome: "Curitiba",          uf: "PR" },
+  { nome: "Florianópolis",     uf: "SC" },
+  { nome: "Juazeiro do Norte", uf: "CE" },
+]
+
+beforeAll(() => {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify(MOCK_MUNICIPIOS), {
+      status:  200,
+      headers: { "Content-Type": "application/json" },
+    })),
+  ))
+})
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

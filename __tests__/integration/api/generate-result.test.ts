@@ -45,12 +45,17 @@ function extractToken(res: Response): string | null {
   return match ? match[1] : null
 }
 
+let savedSecret: string | undefined
+
 describe("POST /api/generate-result", () => {
   beforeEach(() => {
-    delete process.env.RESULT_SECRET
+    savedSecret = process.env.RESULT_SECRET
+    process.env.RESULT_SECRET ??= "test-secret"
   })
 
   afterEach(() => {
+    if (savedSecret === undefined) delete process.env.RESULT_SECRET
+    else process.env.RESULT_SECRET = savedSecret
     vi.clearAllMocks()
   })
 
