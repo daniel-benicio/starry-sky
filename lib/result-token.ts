@@ -1,7 +1,7 @@
 /**
  * Signed token utilities for the result page access control.
  *
- * Token format: {base64(JSON)}.{hmac-sha256-hex}
+ * Token format: {base64url(JSON)}.{hmac-sha256-hex}
  *
  * Works in both Node.js (API routes) and Edge Runtime (middleware)
  * because it uses the Web Crypto API (crypto.subtle), available in both.
@@ -15,8 +15,9 @@ export interface ResultTokenData {
   name2: string
 }
 
-// Fallback for local dev — override with RESULT_SECRET env var in production.
-const FALLBACK_SECRET = "starry-sky-dev-secret-change-in-prod"
+interface TokenPayload extends ResultTokenData {
+  exp: number
+}
 
 // ─── Base64url helpers (RFC 4648 §5) ─────────────────────────────────────────
 // Standard btoa can produce '+', '/', and '=' which are percent-encoded inside
@@ -67,10 +68,12 @@ async function hmacVerify(secret: string, data: string, expected: string): Promi
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function createResultToken(data: ResultTokenData): Promise<string> {
-  const secret  = process.env.RESULT_SECRET ?? FALLBACK_SECRET
-  const payload = toBase64Url(JSON.stringify(data))
-  const sig     = await hmacSign(secret, payload)
-  return `${payload}.${sig}`
+  const secret = process.env.RESULT_SECRET
+  if (!secret) throw new Error("RESULT_SECRET env var is required")
+  const payload: TokenPayload = { ...data, exp: Date.now() + 3600_000 }
+  const encoded = toBase64Url(JSON.stringify(payload))
+  const sig     = await hmacSign(secret, encoded)
+  return `${encoded}.${sig}`
 }
 
 export async function verifyResultToken(token: string): Promise<ResultTokenData | null> {
@@ -78,15 +81,20 @@ export async function verifyResultToken(token: string): Promise<ResultTokenData 
     const dotIdx = token.lastIndexOf(".")
     if (dotIdx === -1) return null
 
-    const payload = token.slice(0, dotIdx)
+    const encoded = token.slice(0, dotIdx)
     const sig     = token.slice(dotIdx + 1)
-    if (!payload || !sig) return null
+    if (!encoded || !sig) return null
 
-    const secret = process.env.RESULT_SECRET ?? FALLBACK_SECRET
-    const valid  = await hmacVerify(secret, payload, sig)
+    const secret = process.env.RESULT_SECRET
+    if (!secret) return null
+
+    const valid = await hmacVerify(secret, encoded, sig)
     if (!valid) return null
 
-    return JSON.parse(fromBase64Url(payload)) as ResultTokenData
+    const { exp, ...data } = JSON.parse(fromBase64Url(encoded)) as TokenPayload
+    if (Date.now() > exp) return null
+
+    return data
   } catch {
     return null
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createResultToken, verifyResultToken } from "@/lib/result-token"
 import type { ResultTokenData } from "@/lib/result-token"
 
@@ -10,9 +10,11 @@ const SAMPLE: ResultTokenData = {
   name2: "Lucas",
 }
 
-// Salva / restaura RESULT_SECRET entre testes que o modificam
 let savedSecret: string | undefined
-beforeEach(() => { savedSecret = process.env.RESULT_SECRET })
+beforeEach(() => {
+  savedSecret = process.env.RESULT_SECRET
+  process.env.RESULT_SECRET ??= "test-secret"
+})
 afterEach(() => {
   if (savedSecret === undefined) delete process.env.RESULT_SECRET
   else process.env.RESULT_SECRET = savedSecret
@@ -31,22 +33,33 @@ describe("createResultToken", () => {
   })
 
   it("o payload decodifica para os dados originais", async () => {
-    const token  = await createResultToken(SAMPLE)
+    const token   = await createResultToken(SAMPLE)
     const payload = token.split(".")[0]
     const decoded = JSON.parse(atob(payload))
     expect(decoded).toMatchObject(SAMPLE)
   })
 
+  it("lança erro quando RESULT_SECRET não está configurado", async () => {
+    delete process.env.RESULT_SECRET
+    await expect(createResultToken(SAMPLE)).rejects.toThrow("RESULT_SECRET env var is required")
+  })
+
   it("a assinatura muda quando o secret muda — mesmos dados, chaves diferentes", async () => {
-    process.env.RESULT_SECRET = "secret-A"
-    const tokenA = await createResultToken(SAMPLE)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"))
+    try {
+      process.env.RESULT_SECRET = "secret-A"
+      const tokenA = await createResultToken(SAMPLE)
 
-    process.env.RESULT_SECRET = "secret-B"
-    const tokenB = await createResultToken(SAMPLE)
+      process.env.RESULT_SECRET = "secret-B"
+      const tokenB = await createResultToken(SAMPLE)
 
-    // Payloads idênticos, assinaturas distintas
-    expect(tokenA.split(".")[0]).toBe(tokenB.split(".")[0])
-    expect(tokenA.split(".")[1]).not.toBe(tokenB.split(".")[1])
+      // Payloads idênticos (mesmo timestamp fixado), assinaturas distintas
+      expect(tokenA.split(".")[0]).toBe(tokenB.split(".")[0])
+      expect(tokenA.split(".")[1]).not.toBe(tokenB.split(".")[1])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("tokens diferentes para dados diferentes", async () => {
@@ -105,5 +118,23 @@ describe("verifyResultToken", () => {
     const badPayload = btoa("isso não é json {{{")
     const fakeToken  = `${badPayload}.fakesig`
     expect(await verifyResultToken(fakeToken)).toBeNull()
+  })
+
+  it("retorna null quando RESULT_SECRET não está configurado", async () => {
+    const token = await createResultToken(SAMPLE)
+    delete process.env.RESULT_SECRET
+    expect(await verifyResultToken(token)).toBeNull()
+  })
+
+  it("retorna null para token expirado", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"))
+    try {
+      const token = await createResultToken(SAMPLE)
+      vi.advanceTimersByTime(3_600_001)
+      expect(await verifyResultToken(token)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

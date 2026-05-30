@@ -21,7 +21,10 @@ function makeRequest(url: string, token?: string): NextRequest {
 }
 
 let savedSecret: string | undefined
-beforeEach(() => { savedSecret = process.env.RESULT_SECRET })
+beforeEach(() => {
+  savedSecret = process.env.RESULT_SECRET
+  process.env.RESULT_SECRET ??= "test-secret"
+})
 afterEach(() => {
   if (savedSecret === undefined) delete process.env.RESULT_SECRET
   else process.env.RESULT_SECRET = savedSecret

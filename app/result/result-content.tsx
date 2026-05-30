@@ -50,13 +50,9 @@ async function buildPosterCanvas(
 
   ctx.textAlign = "center"
 
-  // Truncate to first + last name before drawing to avoid overflow
-  const displayName1 = getFirstAndLastName(name1)
-  const displayName2 = getFirstAndLastName(name2)
-
   ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
   ctx.font = `italic 42px 'Playfair Display', Georgia, serif`
-  ctx.fillText(`${displayName1} & ${displayName2}`, POSTER_WIDTH / 2, POSTER_WIDTH + 52)
+  ctx.fillText(`${name1} & ${name2}`, POSTER_WIDTH / 2, POSTER_WIDTH + 52)
 
   ctx.fillStyle = "rgba(196, 181, 253, 0.8)"
   ctx.font = `20px 'Playfair Display', Georgia, serif`
@@ -121,7 +117,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
 
     setDownloading(true)
     try {
-      const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+      const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate)
       const link   = document.createElement("a")
       link.download = `ceu-${displayName1.toLowerCase().replace(/\s/g, "-")}-${displayName2.toLowerCase().replace(/\s/g, "-")}.png`
       link.href = poster.toDataURL("image/png")
@@ -138,7 +134,7 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
 
     if (source && navigator.share && canShareFiles) {
       try {
-        const poster = await buildPosterCanvas(source, name1, name2, formattedDate)
+        const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate)
         await new Promise<void>((resolve, reject) => {
           poster.toBlob(async (blob) => {
             if (!blob) { reject(new Error("blob null")); return }
@@ -269,12 +265,6 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
                 Compartilhar
               </Button>
             </div>
-
-            {email && (
-              <p className="text-sm text-muted-foreground text-center mb-6">
-                Também enviamos para {email}
-              </p>
-            )}
 
             <Separator className="mb-6 bg-border/50" />
 

@@ -24,7 +24,7 @@ export async function proxy(req: NextRequest) {
     if (!data) {
       // Token is malformed or tampered — delete and bounce back home.
       const response = NextResponse.redirect(new URL("/", req.url))
-      response.cookies.delete("result_token")
+      response.cookies.set("result_token", "", { path: "/result", maxAge: 0 })
       return response
     }
   }
