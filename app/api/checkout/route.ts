@@ -1,34 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createOrder } from "@/lib/pagarme"
+import { upsertUser, createOrder, createPayment, transitionPayment, transitionOrder } from "@/lib/supabase/db"
 
 export async function POST(req: NextRequest) {
   try {
-    const { cardToken, date, city, email, name1, name2 } = await req.json()
+    const { date, city, email, name1, name2, cpf } = await req.json()
 
-    if (!cardToken || !email) {
+    if (!email || !cpf) {
       return NextResponse.json({ message: "Dados incompletos." }, { status: 400 })
     }
 
-    const secretKey = process.env.PAGARME_SECRET_KEY
-    if (!secretKey) {
-      console.error("PAGARME_SECRET_KEY not set")
-      return NextResponse.json({ message: "Configuração de pagamento inválida." }, { status: 500 })
-    }
+    const userId    = await upsertUser(email, cpf)
+    const orderId   = await createOrder({ userId, name1, name2, date, city })
+    const paymentId = await createPayment({ orderId, amountCents: 2900 })
 
-    const order = await createOrder(
-      {
-        customerName: `${name1} ${name2}`.trim() || "Cliente",
-        email,
-        cardToken,
-        metadata: { date, city, name1, name2 },
-      },
-      secretKey
-    )
+    await transitionPayment(paymentId, "confirmed")
+    await transitionPayment(paymentId, "succeeded")
+    await transitionOrder(orderId, "paid")
 
-    return NextResponse.json({ success: true, orderId: order.id })
+    return NextResponse.json({ success: true, orderId })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro interno. Tente novamente em instantes."
-    const isClientError = /recusado|inválido/i.test(message)
-    return NextResponse.json({ message }, { status: isClientError ? 400 : 500 })
+    return NextResponse.json({ message }, { status: 500 })
   }
 }

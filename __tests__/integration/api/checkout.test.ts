@@ -2,25 +2,36 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 import { POST } from "@/app/api/checkout/route"
 
-vi.mock("@/lib/pagarme", () => ({
-  createOrder: vi.fn(),
+// Mock de todas as funções do módulo Supabase DB
+vi.mock("@/lib/supabase/db", () => ({
+  upsertUser:        vi.fn(),
+  createOrder:       vi.fn(),
+  createPayment:     vi.fn(),
+  transitionPayment: vi.fn(),
+  transitionOrder:   vi.fn(),
 }))
 
-import { createOrder } from "@/lib/pagarme"
+import {
+  upsertUser,
+  createOrder,
+  createPayment,
+  transitionPayment,
+  transitionOrder,
+} from "@/lib/supabase/db"
 
 const validBody = {
-  cardToken: "tok_test_123",
+  date:  "2024-02-14",
+  city:  "São Paulo",
   email: "ana@email.com",
-  date: "2024-02-14",
-  city: "São Paulo",
   name1: "Ana",
   name2: "Lucas",
+  cpf:   "123.456.789-01",
 }
 
 function makeRequest(body: object): NextRequest {
   return new NextRequest("http://localhost/api/checkout", {
-    method: "POST",
-    body: JSON.stringify(body),
+    method:  "POST",
+    body:    JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
   })
 }
@@ -28,13 +39,16 @@ function makeRequest(body: object): NextRequest {
 describe("POST /api/checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.PAGARME_SECRET_KEY = "sk_test_secret"
+    // Mocks de retorno padrão para o fluxo de sucesso
+    vi.mocked(upsertUser).mockResolvedValue("user_abc")
+    vi.mocked(createOrder).mockResolvedValue("order_abc123")
+    vi.mocked(createPayment).mockResolvedValue("payment_xyz")
+    vi.mocked(transitionPayment).mockResolvedValue(undefined)
+    vi.mocked(transitionOrder).mockResolvedValue(undefined)
   })
 
   it("retorna 200 com orderId em caso de sucesso", async () => {
-    vi.mocked(createOrder).mockResolvedValueOnce({ id: "order_abc123" })
-
-    const res = await POST(makeRequest(validBody))
+    const res  = await POST(makeRequest(validBody))
     const json = await res.json()
 
     expect(res.status).toBe(200)
@@ -42,9 +56,9 @@ describe("POST /api/checkout", () => {
     expect(json.orderId).toBe("order_abc123")
   })
 
-  it("retorna 400 quando cardToken está ausente", async () => {
-    const { cardToken: _, ...sem } = validBody
-    const res = await POST(makeRequest(sem))
+  it("retorna 400 quando cpf está ausente", async () => {
+    const { cpf: _, ...sem } = validBody
+    const res  = await POST(makeRequest(sem))
     const json = await res.json()
 
     expect(res.status).toBe(400)
@@ -53,63 +67,61 @@ describe("POST /api/checkout", () => {
 
   it("retorna 400 quando email está ausente", async () => {
     const { email: _, ...sem } = validBody
-    const res = await POST(makeRequest(sem))
+    const res  = await POST(makeRequest(sem))
     const json = await res.json()
 
     expect(res.status).toBe(400)
     expect(json.message).toBe("Dados incompletos.")
   })
 
-  it("retorna 500 quando PAGARME_SECRET_KEY não está configurada", async () => {
-    delete process.env.PAGARME_SECRET_KEY
+  it("retorna 500 quando upsertUser lança erro", async () => {
+    vi.mocked(upsertUser).mockRejectedValueOnce(new Error("conexão recusada"))
 
-    const res = await POST(makeRequest(validBody))
+    const res  = await POST(makeRequest(validBody))
     const json = await res.json()
 
     expect(res.status).toBe(500)
-    expect(json.message).toBe("Configuração de pagamento inválida.")
+    expect(json.message).toBe("conexão recusada")
   })
 
-  it("retorna 400 quando Pagarme lança erro de cartão recusado", async () => {
-    vi.mocked(createOrder).mockRejectedValueOnce(new Error("cartão recusado"))
+  it("retorna 500 quando createOrder lança erro", async () => {
+    vi.mocked(createOrder).mockRejectedValueOnce(new Error("FK violation"))
 
-    const res = await POST(makeRequest(validBody))
-    const json = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(json.message).toMatch(/recusado/i)
-  })
-
-  it("retorna 400 quando Pagarme lança erro de token inválido", async () => {
-    vi.mocked(createOrder).mockRejectedValueOnce(new Error("token inválido"))
-
-    const res = await POST(makeRequest(validBody))
-    const json = await res.json()
-
-    expect(res.status).toBe(400)
-  })
-
-  it("retorna 500 para erros genéricos do Pagarme", async () => {
-    vi.mocked(createOrder).mockRejectedValueOnce(new Error("timeout de rede"))
-
-    const res = await POST(makeRequest(validBody))
+    const res  = await POST(makeRequest(validBody))
     const json = await res.json()
 
     expect(res.status).toBe(500)
-    expect(json.message).toBe("timeout de rede")
+    expect(json.message).toBe("FK violation")
   })
 
-  it("passa os dados corretos para createOrder", async () => {
-    vi.mocked(createOrder).mockResolvedValueOnce({ id: "order_xyz" })
+  it("retorna 500 quando createPayment lança erro", async () => {
+    vi.mocked(createPayment).mockRejectedValueOnce(new Error("DB timeout"))
 
+    const res = await POST(makeRequest(validBody))
+
+    expect(res.status).toBe(500)
+  })
+
+  it("passa os dados corretos para upsertUser e createOrder", async () => {
     await POST(makeRequest(validBody))
 
+    expect(upsertUser).toHaveBeenCalledWith("ana@email.com", "123.456.789-01")
     expect(createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "ana@email.com",
-        cardToken: "tok_test_123",
+        userId: "user_abc",
+        name1:  "Ana",
+        name2:  "Lucas",
+        date:   "2024-02-14",
+        city:   "São Paulo",
       }),
-      "sk_test_secret"
     )
+  })
+
+  it("chama transitionPayment e transitionOrder após criar pagamento", async () => {
+    await POST(makeRequest(validBody))
+
+    expect(transitionPayment).toHaveBeenCalledWith("payment_xyz", "confirmed")
+    expect(transitionPayment).toHaveBeenCalledWith("payment_xyz", "succeeded")
+    expect(transitionOrder).toHaveBeenCalledWith("order_abc123", "paid")
   })
 })
