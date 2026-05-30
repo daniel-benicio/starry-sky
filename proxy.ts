@@ -10,7 +10,7 @@ import { verifyResultToken } from "@/lib/result-token"
  * Any direct navigation (typing the URL, sharing a link, manipulating
  * query params) without a valid cookie is redirected to the home page.
  */
-export async function proxy(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (pathname.startsWith("/result")) {
