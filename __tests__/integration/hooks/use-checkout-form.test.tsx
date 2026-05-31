@@ -29,7 +29,7 @@ describe("useCheckoutForm", () => {
     // Restaura o mock de fetch para sucesso após cada teste
     mockFetch.mockResolvedValue({
       ok:   true,
-      json: () => Promise.resolve({ success: true, orderId: "order_abc123" }),
+      json: () => Promise.resolve({ success: true }),
     } as Response)
   })
 
