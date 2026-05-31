@@ -27,7 +27,7 @@ test.describe("Página de pagamento", () => {
   test("versão mobile exibe formulário sem overflow horizontal", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await page.goto(PAYMENT_URL)
-    await page.waitForLoadState("networkidle")
+    await page.waitForLoadState("domcontentloaded")
 
     const main = page.locator("main")
     await expect(main).toBeVisible()
