@@ -54,6 +54,11 @@ test.describe("Página de resultado — mapa estelar", () => {
     await expect(page.getByText(/estação/i)).toBeVisible()
   })
 
+  test("exibe e-mail do usuário na página", async ({ page }) => {
+    await expect(page.getByText(/ana@email\.com/i)).toBeVisible()
+  })
+
+
   test("exibe aviso quando cidade não é reconhecida", async ({ page }) => {
     await goToResult(page, { city: "CidadeXYZ123", email: "a@b.com", name1: "A", name2: "B" })
     await expect(page.getByText(/cidade não reconhecida/i)).toBeVisible()

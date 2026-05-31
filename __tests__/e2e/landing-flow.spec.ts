@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test"
 test.describe("Landing page — formulário de pedido", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/")
+    await page.waitForLoadState("networkidle")
   })
 
   test("exibe a landing page com o formulário", async ({ page }) => {
@@ -38,7 +39,7 @@ test.describe("Landing page — formulário de pedido", () => {
     await page.locator('input[id="name2"]').fill("Maria")
 
     await page.getByRole("button", { name: /gerar meu céu/i }).click()
-    await page.waitForURL(/\/pagamento/)
+    await expect(page).toHaveURL(/\/pagamento/)
 
     const url = page.url()
     expect(url).toContain("city=Curitiba")

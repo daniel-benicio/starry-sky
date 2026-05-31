@@ -3,15 +3,15 @@ import { Playfair_Display, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const playfair = Playfair_Display({ 
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: '--font-serif'
-});
+  variable: "--font-serif",
+})
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
-  variable: '--font-sans'
-});
+  variable: "--font-sans",
+})
 
 export const metadata: Metadata = {
   title: 'Céu do Nosso Dia | O céu na noite em que tudo começou',
