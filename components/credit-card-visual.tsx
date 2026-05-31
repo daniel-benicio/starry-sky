@@ -1,34 +1,28 @@
 "use client"
 
-import type { CardFields } from "@/hooks/use-checkout-form"
-
-function detectBrand(number: string): string {
-  const n = number.replace(/\s/g, "")
-  if (n.startsWith("4")) return "VISA"
-  if (/^5[1-5]/.test(n) || /^2[2-7]/.test(n)) return "MASTER"
-  if (/^3[47]/.test(n)) return "AMEX"
-  return ""
-}
-
-function toGroups(number: string): string[] {
-  const raw = number.replace(/\s/g, "")
-  return Array.from({ length: 4 }, (_, i) => raw.slice(i * 4, i * 4 + 4).padEnd(4, "•"))
-}
-
 const CARD_GRADIENT = "linear-gradient(135deg, #1e1b4b 0%, #3730a3 45%, #1a1040 100%)"
-
 const filledColor  = "rgba(255,255,255,0.92)"
 const emptyColor   = "rgba(255,255,255,0.22)"
 const labelColor   = "rgba(255,255,255,0.3)"
 
-interface CreditCardVisualProps extends Pick<CardFields, "number" | "name" | "expiry" | "cvv"> {
+const BRAND_LABEL: Record<string, string> = {
+  visa:       "VISA",
+  mastercard: "MASTER",
+  amex:       "AMEX",
+  discover:   "DISCOVER",
+  jcb:        "JCB",
+  diners:     "DINERS",
+  unionpay:   "UNION PAY",
+}
+
+interface CreditCardVisualProps {
+  name: string
+  brand: string
   isFlipped: boolean
 }
 
-export function CreditCardVisual({ number, name, expiry, cvv, isFlipped }: CreditCardVisualProps) {
-  const groups = toGroups(number)
-  const brand  = detectBrand(number)
-  const filledDigits = number.replace(/\s/g, "").length
+export function CreditCardVisual({ name, brand, isFlipped }: CreditCardVisualProps) {
+  const brandLabel = BRAND_LABEL[brand] ?? ""
 
   return (
     <div style={{ perspective: "1200px" }} className="w-full mb-8">
@@ -44,35 +38,29 @@ export function CreditCardVisual({ number, name, expiry, cvv, isFlipped }: Credi
         }}
       >
         <CardFront
-          groups={groups}
-          filledDigits={filledDigits}
-          brand={brand}
           name={name}
-          expiry={expiry}
+          brandLabel={brandLabel}
           filledColor={filledColor}
           emptyColor={emptyColor}
           labelColor={labelColor}
           gradient={CARD_GRADIENT}
         />
-        <CardBack cvv={cvv} gradient={CARD_GRADIENT} />
+        <CardBack gradient={CARD_GRADIENT} />
       </div>
     </div>
   )
 }
 
 interface CardFrontProps {
-  groups: string[]
-  filledDigits: number
-  brand: string
   name: string
-  expiry: string
+  brandLabel: string
   filledColor: string
   emptyColor: string
   labelColor: string
   gradient: string
 }
 
-function CardFront({ groups, filledDigits, brand, name, expiry, filledColor, emptyColor, labelColor, gradient }: CardFrontProps) {
+function CardFront({ name, brandLabel, filledColor, emptyColor, labelColor, gradient }: CardFrontProps) {
   return (
     <div
       className="absolute inset-0 rounded-2xl p-5 flex flex-col justify-between overflow-hidden"
@@ -90,18 +78,14 @@ function CardFront({ groups, filledDigits, brand, name, expiry, filledColor, emp
           <div className="w-6 h-4 rounded-sm" style={{ border: "1px solid rgba(180,120,0,0.5)" }} />
         </div>
         <span className="text-xs font-bold tracking-[0.2em] select-none" style={{ color: "rgba(255,255,255,0.45)" }}>
-          {brand || "• • • •"}
+          {brandLabel || "• • • •"}
         </span>
       </div>
 
-      {/* Number */}
+      {/* Masked number */}
       <div className="relative flex gap-2 sm:gap-3 font-mono text-sm sm:text-base select-none">
-        {groups.map((group, i) => (
-          <span
-            key={i}
-            className="tracking-wider sm:tracking-widest transition-all duration-200"
-            style={{ color: filledDigits > i * 4 ? filledColor : emptyColor }}
-          >
+        {["••••", "••••", "••••", "••••"].map((group, i) => (
+          <span key={i} className="tracking-wider sm:tracking-widest" style={{ color: emptyColor }}>
             {group}
           </span>
         ))}
@@ -117,16 +101,14 @@ function CardFront({ groups, filledDigits, brand, name, expiry, filledColor, emp
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: labelColor }}>Validade</p>
-          <p className="text-sm font-mono tracking-wider transition-all duration-200" style={{ color: expiry ? filledColor : emptyColor }}>
-            {expiry || "MM/AA"}
-          </p>
+          <p className="text-sm font-mono tracking-wider" style={{ color: emptyColor }}>MM/AA</p>
         </div>
       </div>
     </div>
   )
 }
 
-function CardBack({ cvv, gradient }: { cvv: string; gradient: string }) {
+function CardBack({ gradient }: { gradient: string }) {
   return (
     <div
       className="absolute inset-0 rounded-2xl overflow-hidden flex flex-col"
@@ -138,9 +120,7 @@ function CardBack({ cvv, gradient }: { cvv: string; gradient: string }) {
 
       <div className="px-5 mt-5">
         <div className="rounded-md h-9 flex items-center justify-end px-4" style={{ background: "rgba(255,255,255,0.92)" }}>
-          <span className="font-mono text-sm tracking-[0.4em] select-none" style={{ color: "#1e1b4b" }}>
-            {cvv || "•••"}
-          </span>
+          <span className="font-mono text-sm tracking-[0.4em] select-none" style={{ color: "#1e1b4b" }}>•••</span>
         </div>
         <p className="text-xs text-right mt-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>CVV</p>
       </div>
