@@ -21,6 +21,21 @@ export function formatCpf(value: string): string {
   return d
 }
 
+/**
+ * Returns only the first and last word of a full name so long middle names
+ * don't overflow or break the poster image layout.
+ *
+ * Examples:
+ *   "João Carlos Silva Pereira" → "João Pereira"
+ *   "Maria Fernanda"            → "Maria Fernanda"  (unchanged)
+ *   "Lucas"                     → "Lucas"           (unchanged)
+ */
+export function getFirstAndLastName(fullName: string): string {
+  const words = fullName.trim().split(/\s+/).filter(Boolean)
+  if (words.length <= 2) return words.join(" ")
+  return `${words[0]} ${words[words.length - 1]}`
+}
+
 export function formatDate(dateStr: string): string {
   if (!dateStr) return ""
   let day: string, month: string, year: string

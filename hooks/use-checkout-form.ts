@@ -52,19 +52,26 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
     setError("")
 
     try {
-      const res = await fetch("/api/checkout", {
+      // TODO: integrar com Pagarme antes de ir para produção
+      await new Promise((res) => setTimeout(res, 800))
+
+      // Gera o token assinado e define o cookie result_token antes de redirecionar.
+      // Sem esse cookie o middleware bloqueia a entrada na página de resultado.
+      const res = await fetch("/api/generate-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...order, cpf: fields.document }),
+        body: JSON.stringify(order),
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message ?? "Erro ao processar pedido.")
+      if (!res.ok) {
+        const { message } = await res.json().catch(() => ({}))
+        throw new Error(message ?? "Erro ao processar resultado.")
+      }
 
-      router.push(`/result?${new URLSearchParams(order as unknown as Record<string, string>).toString()}`)
+      router.push("/result")
+      setIsLoading(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado. Tente novamente.")
-    } finally {
+      setError(err instanceof Error ? err.message : "Erro ao processar pagamento. Tente novamente.")
       setIsLoading(false)
     }
   }

@@ -18,7 +18,7 @@ test.describe("Landing page — formulário de pedido", () => {
     await expect(page).toHaveURL("/")
   })
 
-  test("preencher todos os campos e submeter redireciona para /result", async ({ page }) => {
+  test("preencher todos os campos e submeter redireciona para /pagamento", async ({ page }) => {
     await page.locator('input[type="date"]').fill("2024-02-14")
     await page.locator('input[id="city"]').fill("São Paulo")
     await page.locator('input[type="email"]').fill("ana@email.com")
@@ -27,10 +27,10 @@ test.describe("Landing page — formulário de pedido", () => {
 
     await page.getByRole("button", { name: /gerar meu céu/i }).click()
 
-    await expect(page).toHaveURL(/\/result/)
+    await expect(page).toHaveURL(/\/pagamento/)
   })
 
-  test("URL de resultado contém os dados do formulário", async ({ page }) => {
+  test("URL de pagamento contém os dados do formulário", async ({ page }) => {
     await page.locator('input[type="date"]').fill("2024-02-14")
     await page.locator('input[id="city"]').fill("Curitiba")
     await page.locator('input[type="email"]').fill("teste@mail.com")
@@ -38,7 +38,7 @@ test.describe("Landing page — formulário de pedido", () => {
     await page.locator('input[id="name2"]').fill("Maria")
 
     await page.getByRole("button", { name: /gerar meu céu/i }).click()
-    await page.waitForURL(/\/result/)
+    await page.waitForURL(/\/pagamento/)
 
     const url = page.url()
     expect(url).toContain("city=Curitiba")

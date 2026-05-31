@@ -9,12 +9,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
-// Mock global fetch — o hook chama /api/checkout antes de redirecionar
+// Mock global fetch — the hook calls /api/generate-result before redirecting
 const mockFetch = vi.fn(() =>
-  Promise.resolve({
-    ok:   true,
-    json: () => Promise.resolve({ success: true, orderId: "order_abc123" }),
-  } as Response)
+  Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) } as Response)
 )
 vi.stubGlobal("fetch", mockFetch)
 
@@ -32,7 +29,7 @@ describe("useCheckoutForm", () => {
     // Restaura o mock de fetch para sucesso após cada teste
     mockFetch.mockResolvedValue({
       ok:   true,
-      json: () => Promise.resolve({ success: true, orderId: "order_abc123" }),
+      json: () => Promise.resolve({ success: true }),
     } as Response)
   })
 
@@ -113,16 +110,16 @@ describe("useCheckoutForm", () => {
     await act(async () => {
       await result.current.onSubmit(fakeEvent)
     })
-
+    // O cookie é gerado server-side via /api/generate-result;
+    // o redirect vai para /result sem query params.
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/checkout",
+      "/api/generate-result",
       expect.objectContaining({ method: "POST" }),
     )
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("/result"))
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("email=ana%40email.com"))
+    expect(mockPush).toHaveBeenCalledWith("/result")
   })
 
-  it("seta error quando /api/checkout retorna erro", async () => {
+  it("seta error quando /api/generate-result retorna erro", async () => {
     mockFetch.mockResolvedValueOnce({
       ok:   false,
       json: () => Promise.resolve({ message: "Dados incompletos." }),
