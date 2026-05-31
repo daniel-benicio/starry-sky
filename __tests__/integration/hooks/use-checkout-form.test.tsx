@@ -16,8 +16,8 @@ const mockFetch = vi.fn(() =>
 vi.stubGlobal("fetch", mockFetch)
 
 const ORDER: OrderData = {
-  date: "2024-02-14",
-  city: "São Paulo",
+  date:  "2024-02-14",
+  city:  "São Paulo",
   email: "ana@email.com",
   name1: "Ana",
   name2: "Lucas",
@@ -26,6 +26,11 @@ const ORDER: OrderData = {
 describe("useCheckoutForm", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Restaura o mock de fetch para sucesso após cada teste
+    mockFetch.mockResolvedValue({
+      ok:   true,
+      json: () => Promise.resolve({ success: true, orderId: "order_abc123" }),
+    } as Response)
   })
 
   it("inicia com campos vazios", () => {
@@ -101,6 +106,7 @@ describe("useCheckoutForm", () => {
   it("redireciona para /result após submit com os dados do pedido", async () => {
     const { result } = renderHook(() => useCheckoutForm(ORDER))
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
+
     await act(async () => {
       await result.current.onSubmit(fakeEvent)
     })
@@ -111,5 +117,22 @@ describe("useCheckoutForm", () => {
       expect.objectContaining({ method: "POST" }),
     )
     expect(mockPush).toHaveBeenCalledWith("/result")
+  })
+
+  it("seta error quando /api/generate-result retorna erro", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok:   false,
+      json: () => Promise.resolve({ message: "Dados incompletos." }),
+    } as Response)
+
+    const { result } = renderHook(() => useCheckoutForm(ORDER))
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
+
+    await act(async () => {
+      await result.current.onSubmit(fakeEvent)
+    })
+
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(result.current.error).toBe("Dados incompletos.")
   })
 })

@@ -29,7 +29,7 @@ export interface UseCheckoutFormReturn {
   setField: (key: keyof CardFields, rawValue: string) => void
   onCVVFocus: () => void
   onCVVBlur: () => void
-  onSubmit: (e: React.FormEvent) => Promise<void>
+  onSubmit: (e: React.SyntheticEvent) => Promise<void>
 }
 
 export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
@@ -46,7 +46,7 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
     setFields((prev) => ({ ...prev, [key]: FIELD_FORMATTERS[key](rawValue) }))
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")

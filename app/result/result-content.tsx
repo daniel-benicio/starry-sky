@@ -224,6 +224,13 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
               Cada estrela foi posicionada com precisão astronômica.
             </p>
 
+            {email && (
+              <p className="text-xs text-muted-foreground/70 mb-4">
+                Enviado para{" "}
+                <span className="text-muted-foreground">{email}</span>
+              </p>
+            )}
+
             {cityNotFound && (
               <p className="text-xs text-amber-400/80 mb-4">
                 Cidade não reconhecida — exibindo mapa de São Paulo.
