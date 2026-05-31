@@ -16,9 +16,10 @@ const BASE_ORDER = {
  * Aceita `overrides` para testes que precisam de dados diferentes (ex: cidade inválida).
  */
 async function goToResult(page: Page, overrides: Partial<typeof BASE_ORDER> = {}) {
-  await page.request.post("/api/generate-result", {
+  const res = await page.request.post("/api/generate-result", {
     data: { ...BASE_ORDER, ...overrides },
   })
+  if (!res.ok()) throw new Error(`/api/generate-result returned ${res.status()}`)
   await page.goto("/result")
 }
 
@@ -56,6 +57,7 @@ test.describe("Página de resultado — mapa estelar", () => {
   test("exibe e-mail do usuário na página", async ({ page }) => {
     await expect(page.getByText(/ana@email\.com/i)).toBeVisible()
   })
+
 
   test("exibe aviso quando cidade não é reconhecida", async ({ page }) => {
     await goToResult(page, { city: "CidadeXYZ123", email: "a@b.com", name1: "A", name2: "B" })

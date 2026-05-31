@@ -41,6 +41,11 @@ describe("createResultToken", () => {
     expect(decoded).toMatchObject(SAMPLE)
   })
 
+  it("lança erro quando RESULT_SECRET não está configurado", async () => {
+    delete process.env.RESULT_SECRET
+    await expect(createResultToken(SAMPLE)).rejects.toThrow("RESULT_SECRET env var is required")
+  })
+
   it("a assinatura muda quando o secret muda — mesmos dados, chaves diferentes", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2024-01-01T00:00:00Z"))
