@@ -13,6 +13,10 @@ export interface ResultTokenData {
   email: string
   name1: string
   name2: string
+  /** Latitude resolvida via Nominatim no servidor. Ausente em tokens antigos. */
+  lat?:  number
+  /** Longitude resolvida via Nominatim no servidor. Ausente em tokens antigos. */
+  lon?:  number
 }
 
 interface TokenPayload extends ResultTokenData {

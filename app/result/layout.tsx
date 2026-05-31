@@ -1,18 +1,18 @@
 import { Dancing_Script, Lora, Cormorant_Garamond } from "next/font/google"
 
 const dancing = Dancing_Script({
-  subsets: ["latin"],
+  subsets:  ["latin"],
   variable: "--font-dancing",
 })
 
 const lora = Lora({
-  subsets: ["latin"],
+  subsets:  ["latin"],
   variable: "--font-lora",
 })
 
 const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight:  ["400", "600"],
+  subsets:  ["latin"],
+  weight:   ["400", "600"],
   variable: "--font-cormorant",
 })
 

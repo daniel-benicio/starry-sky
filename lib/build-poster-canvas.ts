@@ -1,10 +1,8 @@
 /**
- * @browser-only — requires DOM Canvas API; do not import in Server Components.
+ * @browser-only — gera o canvas do pôster para download/share.
  *
- * Gera o canvas do pôster para download/share a partir do canvas do mapa estelar
- * já renderizado, aplicando as opções de customização do usuário.
- *
- * Nomes esperados já truncados pelo caller (primeiro + último nome).
+ * Recebe o canvas do mapa estelar já renderizado e monta a imagem
+ * final com os textos, aplicando as opções de customização do usuário.
  */
 
 import { getFontOption, DEFAULT_CUSTOMIZATION, type PosterCustomization } from "@/lib/poster-customization"
@@ -38,24 +36,14 @@ export interface PosterSkyInfo {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Garante que a fonte está carregada antes de usá-la no canvas. */
-async function ensureFontLoaded(style: string, size: number, family: string): Promise<void> {
-  const primaryFamily = family.split(",")[0].replace(/['"]/g, "").trim()
-  try {
-    await document.fonts.load(`${style} ${size}px "${primaryFamily}"`)
-  } catch {
-    // Segue com fallback — melhor exibir algo do que travar
-  }
-}
-
-/** Desenha texto reduzindo o font-size até caber dentro de maxWidth. */
+/** Renders text at (x, y), shrinking font-size until it fits within maxWidth. */
 function fillTextFit(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  baseFont: string,
+  ctx:          CanvasRenderingContext2D,
+  text:         string,
+  x:            number,
+  y:            number,
+  maxWidth:     number,
+  baseFont:     string,
   baseFontSize: number,
 ): void {
   let fontSize = baseFontSize
@@ -67,15 +55,25 @@ function fillTextFit(
   ctx.fillText(text, x, y)
 }
 
+/** Garante que a fonte está carregada antes de usá-la no canvas. */
+async function ensureFontLoaded(style: string, size: number, family: string): Promise<void> {
+  const primaryFamily = family.split(",")[0].replace(/['"]/g, "").trim()
+  try {
+    await document.fonts.load(`${style} ${size}px "${primaryFamily}"`)
+  } catch {
+    // Segue com fallback — melhor exibir algo do que travar
+  }
+}
+
 // ─── Builder ───────────────────────────────────────────────────────────────────
 
 export async function buildPosterCanvas(
-  sourceCanvas:  HTMLCanvasElement,
-  name1:         string,
-  name2:         string,
-  formattedDate: string,
-  customization: PosterCustomization = DEFAULT_CUSTOMIZATION,
-  skyInfo?:      PosterSkyInfo,
+  sourceCanvas:   HTMLCanvasElement,
+  displayName1:   string,
+  displayName2:   string,
+  formattedDate:  string,
+  customization:  PosterCustomization = DEFAULT_CUSTOMIZATION,
+  skyInfo?:       PosterSkyInfo,
 ): Promise<HTMLCanvasElement> {
   const font = getFontOption(customization.fontId)
 
@@ -109,11 +107,16 @@ export async function buildPosterCanvas(
   ctx.textBaseline = "alphabetic"
 
   // ── Nomes ──────────────────────────────────────────────────────────────────
-  // name1/name2 já chegam truncados pelo caller (primeiro + último nome)
-  const namesText  = `${name1} & ${name2}`
-  const namesFont  = `${font.style} 42px ${font.fontFamily}`
-  ctx.fillStyle    = "rgba(255, 255, 255, 0.92)"
-  fillTextFit(ctx, namesText, POSTER_W / 2, NAMES_Y, POSTER_W * 0.88, namesFont, 42)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.92)"
+  fillTextFit(
+    ctx,
+    `${displayName1} & ${displayName2}`,
+    POSTER_W / 2,
+    NAMES_Y,
+    POSTER_W * 0.88,
+    `${font.style} 42px ${font.fontFamily}`,
+    42,
+  )
 
   // ── Data ───────────────────────────────────────────────────────────────────
   ctx.fillStyle = "rgba(196, 181, 253, 0.80)"
@@ -129,9 +132,9 @@ export async function buildPosterCanvas(
   ctx.stroke()
 
   // ── Frase personalizada ────────────────────────────────────────────────────
-  const quoteFont = `italic 17px ${font.fontFamily}`
-  ctx.fillStyle   = "rgba(255, 255, 255, 0.38)"
-  fillTextFit(ctx, customization.quote, POSTER_W / 2, QUOTE_Y, POSTER_W * 0.88, quoteFont, 17)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.38)"
+  ctx.font      = `italic 17px ${font.fontFamily}`
+  ctx.fillText(customization.quote, POSTER_W / 2, QUOTE_Y)
 
   // ── Grade de informações astronômicas ─────────────────────────────────────
   if (skyInfo) {
@@ -164,7 +167,8 @@ export async function buildPosterCanvas(
 
       // Valor na fonte selecionada pelo usuário
       ctx.fillStyle = "rgba(255, 255, 255, 0.82)"
-      fillTextFit(ctx, cell.value, cx, baseY + 58, GRID_COL_W * 0.88, `${font.style} 22px ${font.fontFamily}`, 22)
+      ctx.font      = `${font.style} 22px ${font.fontFamily}`
+      ctx.fillText(cell.value, cx, baseY + 58)
     })
 
     // Linha divisória vertical (centro)

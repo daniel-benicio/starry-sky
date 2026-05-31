@@ -33,7 +33,7 @@ const FALLBACK_SKY_DATA: SkyData = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ResultContent({ date, city, name1, name2, email }: ResultTokenData) {
+export function ResultContent({ date, city, name1, name2, email, lat, lon }: ResultTokenData) {
   const mapCanvasRef     = useRef<HTMLCanvasElement | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
@@ -44,11 +44,27 @@ export function ResultContent({ date, city, name1, name2, email }: ResultTokenDa
   const { customization, setFont, setQuote, resetQuote } = usePosterCustomization()
   const activeFont = getFontOption(customization.fontId)
 
-  // ── Dados do pedido ────────────────────────────────────────────────────────
+  // ── Coordenadas ────────────────────────────────────────────────────────────
+  // Prioridade: lat/lon resolvidos server-side via Nominatim (presentes no token)
+  // → fallback: tabela estática local → fallback final: São Paulo
+  //
+  // IMPORTANTE: tokenCoords DEVE ser memoizado. Criar um literal de objeto
+  // inline ({ lat, lon, ... }) a cada render gera uma nova referência mesmo
+  // com os mesmos valores, o que faz o useEffect de skyData rodar em loop
+  // infinito (coords "muda" → setSkyData → re-render → nova referência → ...).
   const formattedDate = formatDate(date)
-  const rawCoords     = useMemo(() => geocodeCity(city), [city])
-  const coords        = rawCoords ?? SAO_PAULO
-  const cityNotFound  = rawCoords === null
+  const tokenCoords   = useMemo(
+    () => (lat != null && lon != null)
+      ? { lat, lon, displayName: city || "sua cidade" } satisfies Coordinates
+      : null,
+    [lat, lon, city],
+  )
+  const staticCoords  = useMemo(() => geocodeCity(city), [city])
+  const coords        = useMemo(
+    () => tokenCoords ?? staticCoords ?? SAO_PAULO,
+    [tokenCoords, staticCoords],
+  )
+  const cityNotFound  = !tokenCoords && !staticCoords
 
   // Primeiro + último nome para evitar overflow na imagem
   const displayName1 = getFirstAndLastName(name1)

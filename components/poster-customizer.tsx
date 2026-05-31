@@ -41,9 +41,9 @@ export function PosterCustomizer({
             const active = customization.fontId === font.id
             return (
               <button
-                type="button"
                 key={font.id}
-                onClick={() => onFontChange(font.id)}
+                type="button"
+                onClick={() => onFontChange(font.id as FontId)}
                 style={{ fontFamily: font.fontFamily }}
                 className={[
                   "px-3.5 py-1.5 rounded-full text-sm border transition-all duration-200 cursor-pointer",

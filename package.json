@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "catalog:update": "node scripts/generate-catalog.mjs",
+    "municipios:update": "node scripts/generate-municipios.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
