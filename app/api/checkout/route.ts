@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createElement } from "react"
 import { upsertUser, createOrder, createPayment, transitionPayment, transitionOrder } from "@/lib/supabase/db"
+import { sendEmail } from "@/lib/email"
+import { ConfirmationEmail } from "@/emails/confirmation-email"
+import { formatDate } from "@/lib/formatters"
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +20,24 @@ export async function POST(req: NextRequest) {
     await transitionPayment(paymentId, "confirmed")
     await transitionPayment(paymentId, "succeeded")
     await transitionOrder(orderId, "paid")
+
+    const baseUrl    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ceudossodia.com.br"
+    const resultUrl  = `${baseUrl}/result`
+
+    // Fire-and-forget — don't fail the checkout if the email fails
+    sendEmail({
+      to:      email,
+      subject: `✨ Seu mapa estelar está pronto, ${name1}!`,
+      react:   createElement(ConfirmationEmail, {
+        name1,
+        name2,
+        date:      formatDate(date),
+        city,
+        resultUrl,
+      }),
+    }).catch((err) => {
+      console.error("[checkout] confirmation email failed:", err)
+    })
 
     return NextResponse.json({ success: true, orderId })
   } catch (err) {
