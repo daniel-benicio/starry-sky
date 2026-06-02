@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
+import { getStripe } from "@/lib/stripe"
 import { upsertUser, createOrder, createPayment, transitionPayment, transitionOrder } from "@/lib/supabase/db"
 
 export async function POST(req: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Dados incompletos." }, { status: 400 })
     }
 
-    const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    const intent = await getStripe().paymentIntents.retrieve(paymentIntentId)
     if (intent.status !== "succeeded") {
       return NextResponse.json({ message: "Pagamento não confirmado." }, { status: 400 })
     }

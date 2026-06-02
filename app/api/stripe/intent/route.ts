@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
+import { getStripe } from "@/lib/stripe"
 
 export async function POST(req: NextRequest) {
   try {
     const { email, name1, name2, date, city } = await req.json()
 
-    const intent = await stripe.paymentIntents.create({
+    const intent = await getStripe().paymentIntents.create({
       amount: 2900,
       currency: "brl",
       metadata: {

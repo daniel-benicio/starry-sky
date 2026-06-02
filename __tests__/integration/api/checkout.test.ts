@@ -4,7 +4,7 @@ import { NextRequest } from "next/server"
 const { mockRetrieve } = vi.hoisted(() => ({ mockRetrieve: vi.fn() }))
 
 vi.mock("@/lib/stripe", () => ({
-  stripe: { paymentIntents: { retrieve: mockRetrieve } },
+  getStripe: () => ({ paymentIntents: { retrieve: mockRetrieve } }),
 }))
 
 vi.mock("@/lib/supabase/db", () => ({
