@@ -52,8 +52,22 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
     setError("")
 
     try {
-      // TODO: integrar com Pagarme antes de ir para produção
+      // TODO: tokenizar cartão via Pagarme antes de ir para produção
       await new Promise((res) => setTimeout(res, 800))
+
+      const checkoutRes = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...order,
+          cpf: fields.document.replace(/\D/g, ""),
+        }),
+      })
+
+      if (!checkoutRes.ok) {
+        const { message } = await checkoutRes.json().catch(() => ({}))
+        throw new Error(message ?? "Erro ao registrar pedido.")
+      }
 
       // Gera o token assinado e define o cookie result_token antes de redirecionar.
       // Sem esse cookie o middleware bloqueia a entrada na página de resultado.

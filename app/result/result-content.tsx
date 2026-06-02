@@ -6,12 +6,14 @@ import { Download, Loader2, Share2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { toPng, toBlob } from "html-to-image"
 import { StarMapCanvas } from "@/components/star-map-canvas"
 import { StarBackground } from "@/components/star-background"
 import { PosterCustomizer } from "@/components/poster-customizer"
+import { PosterHTML } from "@/components/poster-html"
 import { computeSkyData } from "@/lib/astronomy"
 import { geocodeCity } from "@/lib/geocoding"
-import { buildPosterCanvas, type PosterSkyInfo } from "@/lib/build-poster-canvas"
+import type { PosterSkyInfo } from "@/lib/build-poster-canvas"
 import { usePosterCustomization } from "@/hooks/use-poster-customization"
 import { getFontOption } from "@/lib/poster-customization"
 import type { SkyData, Coordinates } from "@/lib/types"
@@ -34,11 +36,12 @@ const FALLBACK_SKY_DATA: SkyData = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ResultContent({ date, city, name1, name2, email, lat, lon }: ResultTokenData) {
-  const mapCanvasRef     = useRef<HTMLCanvasElement | null>(null)
+  const posterRef        = useRef<HTMLDivElement>(null)
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
-  const [downloading, setDownloading] = useState(false)
-  const [canvasSize, setCanvasSize]   = useState(400)
-  const [skyData, setSkyData]         = useState<SkyData | null>(null)
+  const [downloading, setDownloading]   = useState(false)
+  const [canvasSize, setCanvasSize]     = useState(400)
+  const [skyData, setSkyData]           = useState<SkyData | null>(null)
+  const [starMapDataUrl, setStarMapDataUrl] = useState("")
 
   // ── Customização do pôster ─────────────────────────────────────────────────
   const { customization, setFont, setQuote, resetQuote } = usePosterCustomization()
@@ -96,8 +99,8 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
     return () => ro.disconnect()
   }, [])
 
-  const handleCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
-    mapCanvasRef.current = canvas
+  const handleHighResCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
+    setStarMapDataUrl(canvas.toDataURL("image/png"))
   }, [])
 
   // ── Informações astronômicas para o pôster ────────────────────────────────
@@ -112,14 +115,15 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleDownload = async () => {
-    const source = mapCanvasRef.current
-    if (!source) return
+    const posterEl = posterRef.current?.firstElementChild as HTMLElement | null
+    if (!posterEl || !starMapDataUrl || !skyData) return
     setDownloading(true)
     try {
-      const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate, customization, posterSkyInfo)
-      const link   = document.createElement("a")
+      await document.fonts.ready
+      const dataUrl = await toPng(posterEl, { pixelRatio: 2.5 })
+      const link    = document.createElement("a")
       link.download = `ceu-${displayName1.toLowerCase().replace(/\s/g, "-")}-${displayName2.toLowerCase().replace(/\s/g, "-")}.png`
-      link.href = poster.toDataURL("image/png")
+      link.href = dataUrl
       link.click()
     } finally {
       setDownloading(false)
@@ -127,26 +131,20 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
   }
 
   const handleShare = async () => {
-    const source        = mapCanvasRef.current
-    const shareText     = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${displayName1} & ${displayName2}`
-    const canShareFiles = typeof navigator.canShare === "function"
+    const posterEl  = posterRef.current?.firstElementChild as HTMLElement | null
+    const shareText = `✨ O céu de ${coords.displayName} em ${formattedDate} — ${displayName1} & ${displayName2}`
 
-    if (source && navigator.share && canShareFiles) {
+    if (posterEl && navigator.share && typeof navigator.canShare === "function") {
       try {
-        const poster = await buildPosterCanvas(source, displayName1, displayName2, formattedDate, customization, posterSkyInfo)
-        await new Promise<void>((resolve, reject) => {
-          poster.toBlob(async (blob) => {
-            if (!blob) { reject(new Error("blob null")); return }
-            const file = new File([blob], `ceu-${displayName1}-${displayName2}.png`, { type: "image/png" })
-            if (navigator.canShare({ files: [file] })) {
-              await navigator.share({ title: "Céu do Nosso Dia", files: [file] })
-            } else {
-              await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
-            }
-            resolve()
-          })
-        })
-        return
+        await document.fonts.ready
+        const blob = await toBlob(posterEl, { pixelRatio: 2.5 })
+        if (blob) {
+          const file = new File([blob], `ceu-${displayName1}-${displayName2}.png`, { type: "image/png" })
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: "Céu do Nosso Dia", files: [file] })
+            return
+          }
+        }
       } catch {
         // fall through to text share
       }
@@ -181,11 +179,7 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
 
             <div ref={canvasWrapperRef} className="w-full max-w-[400px]">
               {skyData ? (
-                <StarMapCanvas
-                  skyData={skyData}
-                  size={canvasSize}
-                  onReady={handleCanvasReady}
-                />
+                <StarMapCanvas skyData={skyData} size={canvasSize} />
               ) : (
                 <div
                   className="rounded-full bg-muted/30 animate-pulse"
@@ -306,7 +300,7 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
                 )}
                 {downloading ? "Gerando…" : "Baixar pôster (PNG)"}
               </Button>
-              <Button size="lg" variant="outline" className="w-full gap-2" onClick={handleShare}>
+              <Button size="lg" variant="outline" className="w-full gap-2 lg:hidden" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
                 Compartilhar
               </Button>
@@ -325,6 +319,26 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
 
         </div>
       </main>
+      {/* ── Off-screen high-res canvas para geração do pôster ─────────── */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }}>
+        {skyData && (
+          <StarMapCanvas skyData={skyData} size={780} onReady={handleHighResCanvasReady} />
+        )}
+      </div>
+
+      {/* ── Pôster HTML oculto — capturado pelo html-to-image ──────────── */}
+      <div ref={posterRef} style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }}>
+        {starMapDataUrl && (
+          <PosterHTML
+            starMapDataUrl={starMapDataUrl}
+            displayName1={displayName1}
+            displayName2={displayName2}
+            formattedDate={formattedDate}
+            customization={customization}
+            skyInfo={posterSkyInfo}
+          />
+        )}
+      </div>
     </div>
   )
 }
