@@ -5,15 +5,22 @@ export async function POST(req: NextRequest) {
   try {
     const { email, name1, name2, date, city } = await req.json()
 
+    if (!email || !name1 || !name2 || !date || !city) {
+      return NextResponse.json({ message: "Dados incompletos." }, { status: 400 })
+    }
+
     const intent = await getStripe().paymentIntents.create({
       amount: 2900,
       currency: "brl",
+      payment_method_types: ["card"],
+      description: "Mapa Estelar Personalizado — Céu do Nosso Dia",
+      statement_descriptor: "CEUDOSSODIA",
       metadata: {
-        email:  email  ?? "",
-        name1:  name1  ?? "",
-        name2:  name2  ?? "",
-        date:   date   ?? "",
-        city:   city   ?? "",
+        email,
+        name1,
+        name2,
+        date,
+        city,
       },
     })
 

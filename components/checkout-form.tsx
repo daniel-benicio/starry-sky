@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { CardNumberElement, CardExpiryElement, CardCvcElement } from "@stripe/react-stripe-js"
 import type { StripeCardNumberElementChangeEvent } from "@stripe/stripe-js"
 import { Button } from "@/components/ui/button"
@@ -33,8 +34,11 @@ export function CheckoutForm({ clientSecret, ...order }: Props) {
   const { fields, isCVVFocused, isLoading, error, setField, setBrand, onCVVFocus, onCVVBlur, onSubmit } =
     useCheckoutForm(order, clientSecret)
 
+  const [numberComplete, setNumberComplete] = useState(false)
+
   const onCardNumberChange = (e: StripeCardNumberElementChangeEvent) => {
     setBrand(e.brand ?? "")
+    setNumberComplete(e.complete)
   }
 
   return (
@@ -45,7 +49,7 @@ export function CheckoutForm({ clientSecret, ...order }: Props) {
         Transação 100% segura via Stripe
       </p>
 
-      <CreditCardVisual name={fields.name} brand={fields.brand} isFlipped={isCVVFocused} />
+      <CreditCardVisual name={fields.name} brand={fields.brand} isFlipped={isCVVFocused} numberComplete={numberComplete} />
 
       <form onSubmit={onSubmit} className="space-y-5 w-full">
         <div className="space-y-2">

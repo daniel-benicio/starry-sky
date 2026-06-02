@@ -19,9 +19,10 @@ interface CreditCardVisualProps {
   name: string
   brand: string
   isFlipped: boolean
+  numberComplete?: boolean
 }
 
-export function CreditCardVisual({ name, brand, isFlipped }: CreditCardVisualProps) {
+export function CreditCardVisual({ name, brand, isFlipped, numberComplete }: CreditCardVisualProps) {
   const brandLabel = BRAND_LABEL[brand] ?? ""
 
   return (
@@ -44,6 +45,7 @@ export function CreditCardVisual({ name, brand, isFlipped }: CreditCardVisualPro
           emptyColor={emptyColor}
           labelColor={labelColor}
           gradient={CARD_GRADIENT}
+          numberComplete={numberComplete}
         />
         <CardBack gradient={CARD_GRADIENT} />
       </div>
@@ -58,9 +60,10 @@ interface CardFrontProps {
   emptyColor: string
   labelColor: string
   gradient: string
+  numberComplete?: boolean
 }
 
-function CardFront({ name, brandLabel, filledColor, emptyColor, labelColor, gradient }: CardFrontProps) {
+function CardFront({ name, brandLabel, filledColor, emptyColor, labelColor, gradient, numberComplete }: CardFrontProps) {
   return (
     <div
       className="absolute inset-0 rounded-2xl p-5 flex flex-col justify-between overflow-hidden"
@@ -85,7 +88,7 @@ function CardFront({ name, brandLabel, filledColor, emptyColor, labelColor, grad
       {/* Masked number */}
       <div className="relative flex gap-2 sm:gap-3 font-mono text-sm sm:text-base select-none">
         {["••••", "••••", "••••", "••••"].map((group, i) => (
-          <span key={i} className="tracking-wider sm:tracking-widest" style={{ color: emptyColor }}>
+          <span key={i} className="tracking-wider sm:tracking-widest transition-colors duration-300" style={{ color: numberComplete ? filledColor : emptyColor }}>
             {group}
           </span>
         ))}

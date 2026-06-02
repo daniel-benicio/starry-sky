@@ -57,18 +57,26 @@ function PaymentContent() {
   const [intentError, setIntentError]   = useState("")
 
   useEffect(() => {
+    const controller = new AbortController()
+
     fetch("/api/stripe/intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.clientSecret) setClientSecret(data.clientSecret)
         else setIntentError(data.message ?? "Erro ao inicializar pagamento.")
       })
-      .catch(() => setIntentError("Erro ao inicializar pagamento."))
+      .catch((err) => {
+        if (err.name !== "AbortError") setIntentError("Erro ao inicializar pagamento.")
+      })
+
+    return () => controller.abort()
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // order vem de useSearchParams() — recriado a cada render; só queremos criar o intent uma vez
   }, [])
 
   return (

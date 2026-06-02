@@ -94,6 +94,7 @@ export function useCheckoutForm(order: OrderData, clientSecret: string): UseChec
       router.push("/result")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao processar pagamento. Tente novamente.")
+    } finally {
       setIsLoading(false)
     }
   }
