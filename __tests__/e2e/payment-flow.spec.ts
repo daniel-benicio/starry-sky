@@ -3,10 +3,18 @@ import { test, expect } from "@playwright/test"
 const PAYMENT_URL =
   "/pagamento?date=2024-02-14&city=S%C3%A3o+Paulo&email=ana%40email.com&name1=Ana&name2=Lucas"
 
-const FORM_READY_TIMEOUT = 20_000
+const MOCK_CLIENT_SECRET = "pi_3mock1234567890_secret_mock1234567890"
 
 test.describe("Página de pagamento", () => {
   test.beforeEach(async ({ page }) => {
+    // Mock the intent API so tests don't depend on real Stripe API calls
+    await page.route("**/api/stripe/intent", async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ clientSecret: MOCK_CLIENT_SECRET }),
+      })
+    })
     await page.goto(PAYMENT_URL)
   })
 
@@ -15,13 +23,12 @@ test.describe("Página de pagamento", () => {
   })
 
   test("exibe os campos de nome e CPF do titular", async ({ page }) => {
-    await expect(page.locator('input[autocomplete="cc-name"]')).toBeVisible({ timeout: FORM_READY_TIMEOUT })
-    await expect(page.locator('input[id="cardDocument"]')).toBeVisible({ timeout: FORM_READY_TIMEOUT })
+    await expect(page.locator('input[autocomplete="cc-name"]')).toBeVisible()
+    await expect(page.locator('input[id="cardDocument"]')).toBeVisible()
   })
 
   test("formata CPF ao digitar", async ({ page }) => {
     const cpfInput = page.locator('input[id="cardDocument"]')
-    await cpfInput.waitFor({ state: "visible", timeout: FORM_READY_TIMEOUT })
     await cpfInput.fill("12345678901")
     const value = await cpfInput.inputValue()
     expect(value).toBe("123.456.789-01")

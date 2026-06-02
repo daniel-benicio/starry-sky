@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
       amount: 2900,
       currency: "brl",
       description: "Mapa Estelar Personalizado — Céu do Nosso Dia",
-      statement_descriptor: "CEUDOSSODIA",
       metadata: {
         email:  email  ?? "",
         name1:  name1  ?? "",
