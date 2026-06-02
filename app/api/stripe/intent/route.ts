@@ -12,15 +12,14 @@ export async function POST(req: NextRequest) {
     const intent = await getStripe().paymentIntents.create({
       amount: 2900,
       currency: "brl",
-      automatic_payment_methods: { enabled: true },
       description: "Mapa Estelar Personalizado — Céu do Nosso Dia",
       statement_descriptor: "CEUDOSSODIA",
       metadata: {
-        email,
-        name1,
-        name2,
-        date,
-        city,
+        email:  email  ?? "",
+        name1:  name1  ?? "",
+        name2:  name2  ?? "",
+        date:   date   ?? "",
+        city:   city   ?? "",
       },
     })
 
