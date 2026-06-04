@@ -8,7 +8,7 @@ function getResend(): Resend {
   return _resend
 }
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Céu do Nosso Dia <noreply@ceudossodia.com.br>"
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Céu Estrelado <noreply@ceuestrelado.online>"
 
 export async function sendEmail(opts: {
   to:      string
@@ -16,11 +16,12 @@ export async function sendEmail(opts: {
   react:   ReactElement
   attachments?: Array<{ filename: string; content: Buffer }>
 }) {
-  return getResend().emails.send({
+  const { error } = await getResend().emails.send({
     from:        FROM,
     to:          opts.to,
     subject:     opts.subject,
     react:       opts.react,
     attachments: opts.attachments,
   })
+  if (error) throw new Error(error.message)
 }
