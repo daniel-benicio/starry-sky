@@ -136,7 +136,7 @@ export function CityCombobox({ value, onChange, required, id }: CityComboboxProp
 
   // Erro visual: só aparece após o usuário sair do campo (touched + !isFocused)
   // para não atrapalhar enquanto ainda está digitando.
-  const showError    = touched && !isFocused && !isValid && inputValue.length > 0
+  const showError    = touched && !isFocused && !open && !isValid && inputValue.length > 0
   const emptyError   = touched && !isFocused && required && !inputValue
   const errorMessage = emptyError
     ? "Por favor, informe uma cidade"

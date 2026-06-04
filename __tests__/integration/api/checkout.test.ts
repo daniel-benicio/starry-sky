@@ -15,6 +15,22 @@ vi.mock("@/lib/supabase/db", () => ({
   transitionOrder:   vi.fn(),
 }))
 
+vi.mock("@/lib/nominatim", () => ({
+  nominatimGeocode: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock("@/lib/geocoding", () => ({
+  geocodeCity: vi.fn().mockReturnValue(null),
+}))
+
+vi.mock("@/lib/result-token", () => ({
+  createResultToken: vi.fn().mockResolvedValue("fake-result-token"),
+}))
+
+vi.mock("@/lib/email", () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { POST } from "@/app/api/checkout/route"
 import {
   upsertUser,

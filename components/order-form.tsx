@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CityCombobox } from "@/components/city-combobox"
-import { Sparkles } from "lucide-react"
+import { Sparkles, CalendarIcon } from "lucide-react"
+import { formatDateInput, dateDisplayToISO } from "@/lib/formatters"
 
 export interface OrderFormData {
   date: string
@@ -23,7 +24,9 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
-  const [date,  setDate]  = useState("")
+  const [date,        setDate]        = useState("")   // yyyy-mm-dd
+  const [dateDisplay, setDateDisplay] = useState("")   // dd/mm/yyyy
+  const datePickerRef = useRef<HTMLInputElement>(null)
   const [city,  setCity]  = useState("")
   const [email, setEmail] = useState("")
   const [name1, setName1] = useState("")
@@ -33,14 +36,27 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   // today é calculado uma única vez por montagem — não muda durante a sessão.
   const today = useMemo(() => new Date().toISOString().split("T")[0], [])
 
-  const [dateTouched,    setDateTouched]    = useState(false)
-  const dateIsFuture   = date > today           // comparação lexicográfica funciona em YYYY-MM-DD
-  const showDateError  = dateTouched && dateIsFuture
+  const [dateTouched, setDateTouched] = useState(false)
+  const dateIsFuture  = !!date && date > today
+  const dateInvalid   = dateTouched && (!date || dateIsFuture)
+  const showDateError = dateInvalid
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleDateChange = (value: string) => {
-    setDate(value)
-    onFormChange?.({ date: value, names: name1 && name2 ? `${name1} & ${name2}` : "", email, city })
+  const handleDateChange = (raw: string) => {
+    const display = formatDateInput(raw)
+    const iso     = dateDisplayToISO(display)
+    setDateDisplay(display)
+    setDate(iso)
+    onFormChange?.({ date: iso, names: name1 && name2 ? `${name1} & ${name2}` : "", email, city })
+  }
+
+  const handleDatePickerChange = (iso: string) => {
+    if (!iso) return
+    const [yyyy, mm, dd] = iso.split("-")
+    const display = `${dd}/${mm}/${yyyy}`
+    setDateDisplay(display)
+    setDate(iso)
+    onFormChange?.({ date: iso, names: name1 && name2 ? `${name1} & ${name2}` : "", email, city })
   }
 
   const handleEmailChange = (value: string) => {
@@ -56,9 +72,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Guarda de segurança explícita — impede submit mesmo se a validação
-    // HTML5 for contornada (ex: submit programático em testes ou automação).
-    if (dateIsFuture) {
+    if (!date || dateIsFuture) {
       setDateTouched(true)
       return
     }
@@ -75,26 +89,46 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           Data em que tudo começou
         </Label>
         <div className="space-y-1">
-          <Input
-            id="date"
-            type="date"
-            value={date}
-            max={today}
-            onChange={(e) => handleDateChange(e.target.value)}
-            onBlur={() => setDateTouched(true)}
-            onInvalid={(e) => { e.preventDefault(); setDateTouched(true) }}
-            className={cn(
-              "bg-secondary text-foreground placeholder:text-muted-foreground",
-              "focus:ring-primary focus:border-primary",
-              showDateError
-                ? "border-destructive focus:ring-destructive focus:border-destructive"
-                : "border-border",
-            )}
-            required
-          />
+          <div className="relative">
+            <Input
+              id="date"
+              type="text"
+              inputMode="numeric"
+              placeholder="DD/MM/AAAA"
+              value={dateDisplay}
+              onChange={(e) => handleDateChange(e.target.value)}
+              onBlur={() => setDateTouched(true)}
+              className={cn(
+                "bg-secondary text-foreground placeholder:text-muted-foreground pr-9",
+                "focus:ring-primary focus:border-primary",
+                showDateError
+                  ? "border-destructive focus:ring-destructive focus:border-destructive"
+                  : "border-border",
+              )}
+              required={!date}
+            />
+            <button
+              type="button"
+              onClick={() => datePickerRef.current?.showPicker()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Abrir calendário"
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </button>
+            <input
+              ref={datePickerRef}
+              type="date"
+              value={date}
+              max={today}
+              onChange={(e) => handleDatePickerChange(e.target.value)}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
           {showDateError && (
             <p role="alert" className="text-xs text-destructive px-0.5">
-              A data não pode ser no futuro.
+              {dateIsFuture ? "A data não pode ser no futuro." : "Informe uma data válida."}
             </p>
           )}
         </div>
