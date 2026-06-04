@@ -1,13 +1,17 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements } from "@stripe/react-stripe-js"
 import { Sparkles, Check, ChevronRight } from "lucide-react"
 import { StarBackground } from "@/components/star-background"
 import { CheckoutForm } from "@/components/checkout-form"
 import { OrderSummary } from "@/components/order-summary"
 import type { OrderData } from "@/types/order"
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 function useOrderFromParams(): OrderData {
   const p = useSearchParams()
@@ -49,6 +53,31 @@ function CheckoutSteps() {
 
 function PaymentContent() {
   const order = useOrderFromParams()
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [intentError, setIntentError]   = useState("")
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    fetch("/api/stripe/intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.clientSecret) setClientSecret(data.clientSecret)
+        else setIntentError(data.message ?? "Erro ao inicializar pagamento.")
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setIntentError("Erro ao inicializar pagamento.")
+      })
+
+    return () => controller.abort()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // order vem de useSearchParams() — recriado a cada render; só queremos criar o intent uma vez
+  }, [])
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
@@ -70,7 +99,17 @@ function PaymentContent() {
             <OrderSummary {...order} />
           </div>
           <div className="order-1 lg:order-2 min-w-0 w-full">
-            <CheckoutForm {...order} />
+            {intentError && (
+              <p className="text-destructive text-sm">{intentError}</p>
+            )}
+            {!intentError && !clientSecret && (
+              <p className="text-muted-foreground animate-pulse text-sm">Carregando...</p>
+            )}
+            {clientSecret && (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <CheckoutForm {...order} clientSecret={clientSecret} />
+              </Elements>
+            )}
           </div>
         </div>
       </main>

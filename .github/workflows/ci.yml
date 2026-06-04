@@ -46,15 +46,15 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
-          NEXT_PUBLIC_PAGARME_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAGARME_PUBLIC_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
       - name: Run Playwright tests
         run: npx playwright test --reporter=github
         env:
           CI: true
-          PAGARME_SECRET_KEY: ${{ secrets.PAGARME_SECRET_KEY }}
-          NEXT_PUBLIC_PAGARME_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAGARME_PUBLIC_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
