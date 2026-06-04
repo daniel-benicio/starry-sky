@@ -2,23 +2,14 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { formatCardNumber, formatExpiry, formatCpf } from "@/lib/formatters"
+import { useStripe, useElements, CardNumberElement } from "@stripe/react-stripe-js"
+import { formatCpf } from "@/lib/formatters"
 import type { OrderData } from "@/types/order"
 
 export interface CardFields {
-  number: string
   name: string
   document: string
-  expiry: string
-  cvv: string
-}
-
-const FIELD_FORMATTERS: Record<keyof CardFields, (v: string) => string> = {
-  number:   formatCardNumber,
-  name:     (v) => v,
-  document: formatCpf,
-  expiry:   formatExpiry,
-  cvv:      (v) => v.replace(/\D/g, "").slice(0, 4),
+  brand: string
 }
 
 export interface UseCheckoutFormReturn {
@@ -26,41 +17,61 @@ export interface UseCheckoutFormReturn {
   isCVVFocused: boolean
   isLoading: boolean
   error: string
-  setField: (key: keyof CardFields, rawValue: string) => void
+  setField: (key: keyof Omit<CardFields, "brand">, value: string) => void
+  setBrand: (brand: string) => void
   onCVVFocus: () => void
   onCVVBlur: () => void
   onSubmit: (e: React.SyntheticEvent) => Promise<void>
 }
 
-export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
-  const router = useRouter()
+export function useCheckoutForm(order: OrderData, clientSecret: string): UseCheckoutFormReturn {
+  const router   = useRouter()
+  const stripe   = useStripe()
+  const elements = useElements()
 
-  const [fields, setFields] = useState<CardFields>({
-    number: "", name: "", document: "", expiry: "", cvv: "",
-  })
+  const [fields, setFields] = useState<CardFields>({ name: "", document: "", brand: "" })
   const [isCVVFocused, setIsCVVFocused] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [isLoading, setIsLoading]       = useState(false)
+  const [error, setError]               = useState("")
 
-  const setField = (key: keyof CardFields, rawValue: string) => {
-    setFields((prev) => ({ ...prev, [key]: FIELD_FORMATTERS[key](rawValue) }))
+  const setField = (key: keyof Omit<CardFields, "brand">, value: string) => {
+    const formatted = key === "document" ? formatCpf(value) : value
+    setFields((prev) => ({ ...prev, [key]: formatted }))
   }
+
+  const setBrand = (brand: string) => setFields((prev) => ({ ...prev, brand }))
 
   const onSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
+    if (!stripe || !elements) return
+
     setIsLoading(true)
     setError("")
 
     try {
-      // TODO: tokenizar cartão via Pagarme antes de ir para produção
-      await new Promise((res) => setTimeout(res, 800))
+      const cardElement = elements.getElement(CardNumberElement)
+      if (!cardElement) throw new Error("Elemento de cartão não encontrado.")
+
+      const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name:  fields.name,
+            email: order.email,
+          },
+        },
+      })
+
+      if (stripeError) throw new Error(stripeError.message ?? "Pagamento recusado.")
+      if (paymentIntent?.status !== "succeeded") throw new Error("Pagamento não concluído.")
 
       const checkoutRes = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          paymentIntentId: paymentIntent.id,
+          cpf:   fields.document,
           ...order,
-          cpf: fields.document.replace(/\D/g, ""),
         }),
       })
 
@@ -69,23 +80,21 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
         throw new Error(message ?? "Erro ao registrar pedido.")
       }
 
-      // Gera o token assinado e define o cookie result_token antes de redirecionar.
-      // Sem esse cookie o middleware bloqueia a entrada na página de resultado.
-      const res = await fetch("/api/generate-result", {
+      const resultRes = await fetch("/api/generate-result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(order),
       })
 
-      if (!res.ok) {
-        const { message } = await res.json().catch(() => ({}))
+      if (!resultRes.ok) {
+        const { message } = await resultRes.json().catch(() => ({}))
         throw new Error(message ?? "Erro ao processar resultado.")
       }
 
       router.push("/result")
-      setIsLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao processar pagamento. Tente novamente.")
+    } finally {
       setIsLoading(false)
     }
   }
@@ -96,6 +105,7 @@ export function useCheckoutForm(order: OrderData): UseCheckoutFormReturn {
     isLoading,
     error,
     setField,
+    setBrand,
     onCVVFocus: () => setIsCVVFocused(true),
     onCVVBlur:  () => setIsCVVFocused(false),
     onSubmit,

@@ -1,5 +1,8 @@
 "use client"
 
+import { useState } from "react"
+import { CardNumberElement, CardExpiryElement, CardCvcElement } from "@stripe/react-stripe-js"
+import type { StripeCardNumberElementChangeEvent } from "@stripe/stripe-js"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,37 +15,43 @@ const INPUT_CLS =
   "bg-secondary border-border text-foreground placeholder:text-muted-foreground " +
   "focus:ring-primary focus:border-primary transition-colors duration-200 hover:border-primary/40"
 
-export function CheckoutForm(order: OrderData) {
-  const { fields, isCVVFocused, isLoading, error, setField, onCVVFocus, onCVVBlur, onSubmit } =
-    useCheckoutForm(order)
+const STRIPE_BASE_STYLE = {
+  color: "rgba(255,255,255,0.92)",
+  fontSize: "14px",
+  fontFamily: "inherit",
+  "::placeholder": { color: "rgba(255,255,255,0.3)" },
+}
+
+const STRIPE_ELEMENT_OPTIONS = { style: { base: STRIPE_BASE_STYLE } }
+
+const ELEMENT_WRAPPER =
+  "flex items-center h-10 px-3 rounded-md border bg-secondary border-border " +
+  "transition-colors duration-200 hover:border-primary/40 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary"
+
+type Props = OrderData & { clientSecret: string }
+
+export function CheckoutForm({ clientSecret, ...order }: Props) {
+  const { fields, isCVVFocused, isLoading, error, setField, setBrand, onCVVFocus, onCVVBlur, onSubmit } =
+    useCheckoutForm(order, clientSecret)
+
+  const [numberComplete, setNumberComplete] = useState(false)
+
+  const onCardNumberChange = (e: StripeCardNumberElementChangeEvent) => {
+    setBrand(e.brand ?? "")
+    setNumberComplete(e.complete)
+  }
 
   return (
     <div className="animate-fade-in-up w-full min-w-0" style={{ animationDelay: "80ms" }}>
       <h2 className="font-serif text-2xl mb-1 text-foreground">Dados do pagamento</h2>
       <p className="text-muted-foreground text-sm mb-6 flex items-center gap-1.5">
         <Lock className="h-3.5 w-3.5" />
-        Transação 100% segura via Pagar.me
+        Transação 100% segura via Stripe
       </p>
 
-      <CreditCardVisual {...fields} isFlipped={isCVVFocused} />
+      <CreditCardVisual name={fields.name} brand={fields.brand} isFlipped={isCVVFocused} numberComplete={numberComplete} />
 
       <form onSubmit={onSubmit} className="space-y-5 w-full">
-        <div className="space-y-2">
-          <Label htmlFor="cardNumber" className="text-foreground/90">Número do cartão</Label>
-          <Input
-            id="cardNumber"
-            type="text"
-            inputMode="numeric"
-            placeholder="0000 0000 0000 0000"
-            value={fields.number}
-            onChange={(e) => setField("number", e.target.value)}
-            className={INPUT_CLS}
-            maxLength={19}
-            autoComplete="cc-number"
-            required
-          />
-        </div>
-
         <div className="space-y-2">
           <Label htmlFor="cardName" className="text-foreground/90">Nome no cartão</Label>
           <Input
@@ -72,38 +81,34 @@ export function CheckoutForm(order: OrderData) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="cardExpiry" className="text-foreground/90">Validade</Label>
-            <Input
-              id="cardExpiry"
-              type="text"
-              inputMode="numeric"
-              placeholder="MM/AA"
-              value={fields.expiry}
-              onChange={(e) => setField("expiry", e.target.value)}
-              className={INPUT_CLS}
-              maxLength={5}
-              autoComplete="cc-exp"
-              required
+        <div className="space-y-2">
+          <Label className="text-foreground/90">Número do cartão</Label>
+          <div className={ELEMENT_WRAPPER}>
+            <CardNumberElement
+              options={STRIPE_ELEMENT_OPTIONS}
+              className="w-full"
+              onChange={onCardNumberChange}
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="cardCVV" className="text-foreground/90">CVV</Label>
-            <Input
-              id="cardCVV"
-              type="text"
-              inputMode="numeric"
-              placeholder="•••"
-              value={fields.cvv}
-              onChange={(e) => setField("cvv", e.target.value)}
-              onFocus={onCVVFocus}
-              onBlur={onCVVBlur}
-              className={INPUT_CLS}
-              maxLength={4}
-              autoComplete="cc-csc"
-              required
-            />
+            <Label className="text-foreground/90">Validade</Label>
+            <div className={ELEMENT_WRAPPER}>
+              <CardExpiryElement options={STRIPE_ELEMENT_OPTIONS} className="w-full" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-foreground/90">CVV</Label>
+            <div className={ELEMENT_WRAPPER}>
+              <CardCvcElement
+                options={STRIPE_ELEMENT_OPTIONS}
+                className="w-full"
+                onFocus={onCVVFocus}
+                onBlur={onCVVBlur}
+              />
+            </div>
           </div>
         </div>
 
