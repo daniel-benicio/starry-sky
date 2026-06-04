@@ -4,15 +4,19 @@ import { useCheckoutForm } from "@/hooks/use-checkout-form"
 import type { OrderData } from "@/types/order"
 
 const mockPush = vi.fn()
-
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
-// Mock global fetch — the hook calls /api/generate-result before redirecting
-const mockFetch = vi.fn(() =>
-  Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) } as Response)
-)
+const mockConfirmCardPayment = vi.fn()
+const mockGetElement = vi.fn(() => ({}))
+vi.mock("@stripe/react-stripe-js", () => ({
+  useStripe:   () => ({ confirmCardPayment: mockConfirmCardPayment }),
+  useElements: () => ({ getElement: mockGetElement }),
+  CardNumberElement: {},
+}))
+
+const mockFetch = vi.fn()
 vi.stubGlobal("fetch", mockFetch)
 
 const ORDER: OrderData = {
@@ -23,10 +27,14 @@ const ORDER: OrderData = {
   name2: "Lucas",
 }
 
+const CLIENT_SECRET = "pi_test_secret_123"
+
+const successPaymentIntent = { id: "pi_test_123", status: "succeeded" }
+
 describe("useCheckoutForm", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Restaura o mock de fetch para sucesso após cada teste
+    mockConfirmCardPayment.mockResolvedValue({ paymentIntent: successPaymentIntent })
     mockFetch.mockResolvedValue({
       ok:   true,
       json: () => Promise.resolve({ success: true }),
@@ -34,84 +42,69 @@ describe("useCheckoutForm", () => {
   })
 
   it("inicia com campos vazios", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    expect(result.current.fields.number).toBe("")
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
     expect(result.current.fields.name).toBe("")
     expect(result.current.fields.document).toBe("")
-    expect(result.current.fields.expiry).toBe("")
-    expect(result.current.fields.cvv).toBe("")
+    expect(result.current.fields.brand).toBe("")
   })
 
-  it("formata número do cartão ao chamar setField", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.setField("number", "4111111111111111")
-    })
-    expect(result.current.fields.number).toBe("4111 1111 1111 1111")
-  })
-
-  it("formata CPF ao chamar setField", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.setField("document", "12345678901")
-    })
+  it("formata CPF ao chamar setField document", () => {
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    act(() => { result.current.setField("document", "12345678901") })
     expect(result.current.fields.document).toBe("123.456.789-01")
   })
 
-  it("formata validade ao chamar setField", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.setField("expiry", "1225")
-    })
-    expect(result.current.fields.expiry).toBe("12/25")
-  })
-
   it("não altera campo name (sem formatação)", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.setField("name", "ANA SOUZA")
-    })
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    act(() => { result.current.setField("name", "ANA SOUZA") })
     expect(result.current.fields.name).toBe("ANA SOUZA")
   })
 
+  it("setBrand atualiza brand", () => {
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    act(() => { result.current.setBrand("visa") })
+    expect(result.current.fields.brand).toBe("visa")
+  })
+
   it("isCVVFocused começa false", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
     expect(result.current.isCVVFocused).toBe(false)
   })
 
   it("onCVVFocus seta isCVVFocused para true", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.onCVVFocus()
-    })
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    act(() => { result.current.onCVVFocus() })
     expect(result.current.isCVVFocused).toBe(true)
   })
 
   it("onCVVBlur seta isCVVFocused de volta para false", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
-    act(() => {
-      result.current.onCVVFocus()
-    })
-    act(() => {
-      result.current.onCVVBlur()
-    })
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    act(() => { result.current.onCVVFocus() })
+    act(() => { result.current.onCVVBlur() })
     expect(result.current.isCVVFocused).toBe(false)
   })
 
   it("isLoading começa false", () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
     expect(result.current.isLoading).toBe(false)
   })
 
-  it("redireciona para /result após submit com os dados do pedido", async () => {
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
+  it("redireciona para /result após submit bem-sucedido", async () => {
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
       await result.current.onSubmit(fakeEvent)
     })
-    // O cookie é gerado server-side via /api/generate-result;
-    // o redirect vai para /result sem query params.
+
+    expect(mockConfirmCardPayment).toHaveBeenCalledWith(
+      CLIENT_SECRET,
+      expect.objectContaining({ payment_method: expect.any(Object) }),
+    )
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/checkout",
+      expect.objectContaining({ method: "POST" }),
+    )
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/generate-result",
       expect.objectContaining({ method: "POST" }),
@@ -119,13 +112,12 @@ describe("useCheckoutForm", () => {
     expect(mockPush).toHaveBeenCalledWith("/result")
   })
 
-  it("seta error quando /api/generate-result retorna erro", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok:   false,
-      json: () => Promise.resolve({ message: "Dados incompletos." }),
-    } as Response)
+  it("seta error quando Stripe recusa cartão", async () => {
+    mockConfirmCardPayment.mockResolvedValueOnce({
+      error: { message: "Seu cartão foi recusado." },
+    })
 
-    const { result } = renderHook(() => useCheckoutForm(ORDER))
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
 
     await act(async () => {
@@ -133,6 +125,23 @@ describe("useCheckoutForm", () => {
     })
 
     expect(mockPush).not.toHaveBeenCalled()
-    expect(result.current.error).toBe("Dados incompletos.")
+    expect(result.current.error).toBe("Seu cartão foi recusado.")
+  })
+
+  it("seta error quando /api/checkout retorna erro", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok:   false,
+      json: () => Promise.resolve({ message: "Erro ao registrar pedido." }),
+    } as Response)
+
+    const { result } = renderHook(() => useCheckoutForm(ORDER, CLIENT_SECRET))
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent
+
+    await act(async () => {
+      await result.current.onSubmit(fakeEvent)
+    })
+
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(result.current.error).toBe("Erro ao registrar pedido.")
   })
 })

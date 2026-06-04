@@ -1,13 +1,19 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Sparkles, Check, ChevronRight } from "lucide-react"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements } from "@stripe/react-stripe-js"
+import { Sparkles, Check, ChevronRight, CreditCard } from "lucide-react"
 import { StarBackground } from "@/components/star-background"
 import { CheckoutForm } from "@/components/checkout-form"
+import { PixForm } from "@/components/pix-form"
 import { OrderSummary } from "@/components/order-summary"
+import { cn } from "@/lib/utils"
 import type { OrderData } from "@/types/order"
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 function useOrderFromParams(): OrderData {
   const p = useSearchParams()
@@ -47,8 +53,55 @@ function CheckoutSteps() {
   )
 }
 
+type Method = "card" | "pix"
+
+function MethodTab({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
 function PaymentContent() {
   const order = useOrderFromParams()
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [intentError, setIntentError]   = useState("")
+  const [method, setMethod]             = useState<Method>("card")
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    fetch("/api/stripe/intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.clientSecret) setClientSecret(data.clientSecret)
+        else setIntentError(data.message ?? "Erro ao inicializar pagamento.")
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setIntentError("Erro ao inicializar pagamento.")
+      })
+
+    return () => controller.abort()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // order vem de useSearchParams() — recriado a cada render; só queremos criar o intent uma vez
+  }, [])
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
@@ -69,8 +122,37 @@ function PaymentContent() {
           <div className="order-2 lg:order-1 animate-fade-in-up min-w-0 w-full" style={{ animationDelay: "120ms" }}>
             <OrderSummary {...order} />
           </div>
-          <div className="order-1 lg:order-2 min-w-0 w-full">
-            <CheckoutForm {...order} />
+          <div className="order-1 lg:order-2 min-w-0 w-full space-y-5">
+            {/* Seletor de método */}
+            <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+              <MethodTab active={method === "card"} onClick={() => setMethod("card")}>
+                <CreditCard className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
+                Cartão de crédito
+              </MethodTab>
+              <MethodTab active={method === "pix"} onClick={() => setMethod("pix")}>
+                <span className="mr-1.5">PIX</span>⚡
+              </MethodTab>
+            </div>
+
+            {/* PIX — não depende do Stripe */}
+            {method === "pix" && <PixForm {...order} />}
+
+            {/* Cartão — carrega o Stripe Elements */}
+            {method === "card" && (
+              <>
+                {intentError && (
+                  <p className="text-destructive text-sm">{intentError}</p>
+                )}
+                {!intentError && !clientSecret && (
+                  <p className="text-muted-foreground animate-pulse text-sm">Carregando...</p>
+                )}
+                {clientSecret && (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <CheckoutForm {...order} clientSecret={clientSecret} />
+                  </Elements>
+                )}
+              </>
+            )}
           </div>
         </div>
       </main>

@@ -2,9 +2,20 @@
 
 import { useRef, useCallback, useMemo, useState, useEffect } from "react"
 import Link from "next/link"
-import { Download, Loader2, Share2, Sparkles } from "lucide-react"
+import { Download, Loader2, Mail, Share2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toPng, toBlob } from "html-to-image"
 import { StarMapCanvas } from "@/components/star-map-canvas"
@@ -38,10 +49,15 @@ const FALLBACK_SKY_DATA: SkyData = {
 export function ResultContent({ date, city, name1, name2, email, lat, lon }: ResultTokenData) {
   const posterRef        = useRef<HTMLDivElement>(null)
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
-  const [downloading, setDownloading]   = useState(false)
-  const [canvasSize, setCanvasSize]     = useState(400)
-  const [skyData, setSkyData]           = useState<SkyData | null>(null)
+  const [downloading, setDownloading]       = useState(false)
+  const [canvasSize, setCanvasSize]         = useState(400)
+  const [skyData, setSkyData]               = useState<SkyData | null>(null)
   const [starMapDataUrl, setStarMapDataUrl] = useState("")
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [emailTo, setEmailTo]               = useState(email)
+  const [sendingEmail, setSendingEmail]     = useState(false)
+  const [emailSent, setEmailSent]           = useState(false)
+  const [emailError, setEmailError]         = useState("")
 
   // ── Customização do pôster ─────────────────────────────────────────────────
   const { customization, setFont, setQuote, resetQuote } = usePosterCustomization()
@@ -154,6 +170,44 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
       await navigator.share({ title: "Céu do Nosso Dia", text: shareText })
     } else {
       await navigator.clipboard.writeText(shareText)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    const posterEl = posterRef.current?.firstElementChild as HTMLElement | null
+    if (!posterEl || !starMapDataUrl || !skyData) return
+
+    setSendingEmail(true)
+    setEmailError("")
+    setEmailSent(false)
+
+    try {
+      await document.fonts.ready
+      const posterDataUrl = await toPng(posterEl, { pixelRatio: 2.5 })
+
+      const res = await fetch("/api/send-poster", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email:         emailTo,
+          name1:         displayName1,
+          name2:         displayName2,
+          formattedDate,
+          city:          coords.displayName,
+          posterDataUrl,
+        }),
+      })
+
+      if (!res.ok) {
+        const { message } = await res.json().catch(() => ({}))
+        throw new Error(message ?? "Erro ao enviar e-mail.")
+      }
+
+      setEmailSent(true)
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Erro ao enviar e-mail.")
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -300,6 +354,76 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
                 )}
                 {downloading ? "Gerando…" : "Baixar pôster (PNG)"}
               </Button>
+
+              {/* Enviar por e-mail */}
+              <Dialog
+                open={emailDialogOpen}
+                onOpenChange={(open) => {
+                  setEmailDialogOpen(open)
+                  if (!open) { setEmailSent(false); setEmailError("") }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full gap-2"
+                    disabled={!starMapDataUrl || !skyData}
+                  >
+                    <Mail className="h-4 w-4" />
+                    Enviar por e-mail
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Enviar pôster por e-mail</DialogTitle>
+                    <DialogDescription>
+                      O pôster com a fonte e frase que você escolheu será anexado ao e-mail.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {emailSent ? (
+                    <p className="text-sm text-center py-4 text-primary">
+                      ✦ E-mail enviado com sucesso!
+                    </p>
+                  ) : (
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="emailTo">Endereço de e-mail</Label>
+                        <Input
+                          id="emailTo"
+                          type="email"
+                          value={emailTo}
+                          onChange={(e) => setEmailTo(e.target.value)}
+                          placeholder="seu@email.com"
+                        />
+                      </div>
+                      {emailError && (
+                        <p className="text-sm text-destructive">{emailError}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {!emailSent && (
+                    <DialogFooter>
+                      <Button
+                        onClick={handleSendEmail}
+                        disabled={sendingEmail || !emailTo}
+                        className="w-full gap-2"
+                      >
+                        {sendingEmail ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="h-4 w-4" />
+                        )}
+                        {sendingEmail ? "Enviando…" : "Enviar"}
+                      </Button>
+                    </DialogFooter>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+
               <Button size="lg" variant="outline" className="w-full gap-2 lg:hidden" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
                 Compartilhar
