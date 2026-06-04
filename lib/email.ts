@@ -1,5 +1,5 @@
-import { Resend } from "resend"
 import type { ReactElement } from "react"
+import { Resend } from "resend"
 
 // Instantiated lazily so build-time collection doesn't fail without the API key
 let _resend: Resend | null = null
@@ -8,7 +8,7 @@ function getResend(): Resend {
   return _resend
 }
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Céu Estrelado <noreply@ceuestrelado.online>"
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Ceu Estrelado <noreply@ceuestrelado.online>"
 
 export async function sendEmail(opts: {
   to:      string
