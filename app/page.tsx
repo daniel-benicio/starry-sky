@@ -14,8 +14,8 @@ export default function Home() {
 
   const handleSubmit = (data: OrderFormData) => {
     const params = new URLSearchParams({
-      date:  data.date,
-      city:  data.city,
+      date: data.date,
+      city: data.city,
       email: data.email,
       name1: data.name1,
       name2: data.name2,

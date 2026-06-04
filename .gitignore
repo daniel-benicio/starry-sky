@@ -2,3 +2,14 @@ node_modules/
 .claude
 .next/
 tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Gerados
+lib/municipios-br.ts
+.env
+.env.local
+
+# Testes
+playwright-report/
+test-results/
+coverage/
