@@ -128,7 +128,7 @@ export function CheckoutForm({ clientSecret, ...order }: Props) {
           {isLoading ? (
             <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processando pagamento...</>
           ) : (
-            <><Lock className="w-4 h-4 mr-2" />Pagar R$&nbsp;29,00</>
+            <><Lock className="w-4 h-4 mr-2" />Pagar R$&nbsp;24,99</>
           )}
         </Button>
 

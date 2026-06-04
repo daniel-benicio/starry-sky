@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     const intent = await getStripe().paymentIntents.create({
-      amount: 2900,
+      amount: 2499,
       currency: "brl",
       description: "Mapa Estelar Personalizado — Céu do Nosso Dia",
       metadata: {

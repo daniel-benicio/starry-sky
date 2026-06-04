@@ -14,7 +14,9 @@ export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (pathname.startsWith("/result")) {
-    const token = req.cookies.get("result_token")?.value
+    const cookieToken = req.cookies.get("result_token")?.value
+    const urlToken    = req.nextUrl.searchParams.get("token") ?? undefined
+    const token       = cookieToken ?? urlToken
 
     if (!token) {
       return NextResponse.redirect(new URL("/", req.url))
@@ -22,9 +24,22 @@ export default async function proxy(req: NextRequest) {
 
     const data = await verifyResultToken(token)
     if (!data) {
-      // Token is malformed or tampered — delete and bounce back home.
       const response = NextResponse.redirect(new URL("/", req.url))
-      response.cookies.set("result_token", "", { path: "/result", maxAge: 0 })
+      if (cookieToken) response.cookies.set("result_token", "", { path: "/result", maxAge: 0 })
+      return response
+    }
+
+    // Token veio via URL (link do e-mail): define o cookie e redireciona
+    // para a URL limpa (sem ?token=) para que a página Server Component o leia.
+    if (!cookieToken && urlToken) {
+      const response = NextResponse.redirect(new URL(pathname, req.url))
+      response.cookies.set("result_token", urlToken, {
+        httpOnly: true,
+        secure:   process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path:     "/result",
+        maxAge:   60 * 60,
+      })
       return response
     }
   }
