@@ -134,6 +134,7 @@ export async function transitionOrder(orderId: string, newState: OrderState): Pr
 export async function createPayment(params: {
   orderId: string
   amountCents: number
+  providerPaymentId?: string
 }): Promise<string> {
   const db = createServerClient()
   const id = newId()
@@ -144,8 +145,8 @@ export async function createPayment(params: {
     amount_cents: params.amountCents,
     state: "created",
     is_active: true,
-    provider: "pagarme",
-    provider_payment_id: null,
+    provider: "stripe",
+    provider_payment_id: params.providerPaymentId ?? null,
     paid_at: null,
   })
   if (error) throw new Error(`createPayment: ${error.message}`)
