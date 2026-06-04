@@ -37,21 +37,23 @@ test.describe("Página de resultado — mapa estelar", () => {
   })
 
   test("exibe o canvas do mapa estelar após carregar", async ({ page }) => {
-    await expect(page.locator("canvas:not([aria-hidden])")).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator("main canvas").first()).toBeVisible({ timeout: 10_000 })
   })
 
   test("exibe botão de download", async ({ page }) => {
     await expect(page.getByRole("button", { name: /baixar/i })).toBeVisible()
   })
 
-  test("exibe botão de compartilhar", async ({ page }) => {
+  test("exibe botão de compartilhar em mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.goto("/result")
     await expect(page.getByRole("button", { name: /compartilhar/i })).toBeVisible()
   })
 
   test("exibe informações astronômicas (fase da lua, estação)", async ({ page }) => {
-    await page.locator("canvas:not([aria-hidden])").waitFor({ timeout: 10_000 })
-    await expect(page.getByText(/fase da lua/i)).toBeVisible()
-    await expect(page.getByText(/estação/i)).toBeVisible()
+    await page.locator("main canvas").first().waitFor({ timeout: 10_000 })
+    await expect(page.locator("main").getByText(/fase da lua/i)).toBeVisible()
+    await expect(page.locator("main").getByText(/estação/i)).toBeVisible()
   })
 
   test("exibe e-mail do usuário na página", async ({ page }) => {
