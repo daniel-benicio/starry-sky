@@ -9,7 +9,7 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ onSubmit }: HeroSectionProps) {
-  const [formData, setFormData] = useState({ date: "", names: "", email: "" })
+  const [formData, setFormData] = useState({ date: "", names: "", email: "", city: "" })
 
   return (
     <section className="min-h-screen flex items-center justify-center px-6 py-24 relative z-10">
@@ -43,7 +43,7 @@ export function HeroSection({ onSubmit }: HeroSectionProps) {
 
           {/* Right: Star Map Preview */}
           <div className="flex justify-center lg:justify-end order-1 lg:order-2">
-            <StarMapPreview date={formData.date} names={formData.names} />
+            <StarMapPreview date={formData.date} names={formData.names} city={formData.city} />
           </div>
         </div>
       </div>
