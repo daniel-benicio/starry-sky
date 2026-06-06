@@ -47,8 +47,9 @@ const FALLBACK_SKY_DATA: SkyData = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ResultContent({ date, city, name1, name2, email, lat, lon }: ResultTokenData) {
-  const posterRef        = useRef<HTMLDivElement>(null)
-  const canvasWrapperRef = useRef<HTMLDivElement>(null)
+  const posterRef          = useRef<HTMLDivElement>(null)
+  const canvasWrapperRef   = useRef<HTMLDivElement>(null)
+  const autoPosterSentRef  = useRef(false)
   const [downloading, setDownloading]       = useState(false)
   const [canvasSize, setCanvasSize]         = useState(400)
   const [skyData, setSkyData]               = useState<SkyData | null>(null)
@@ -118,6 +119,36 @@ export function ResultContent({ date, city, name1, name2, email, lat, lon }: Res
   const handleHighResCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
     setStarMapDataUrl(canvas.toDataURL("image/png"))
   }, [])
+
+  // ── Envio automático do pôster ao carregar (dispara uma única vez) ─────────
+  useEffect(() => {
+    if (!starMapDataUrl || !skyData || !email || autoPosterSentRef.current) return
+    const posterEl = posterRef.current?.firstElementChild as HTMLElement | null
+    if (!posterEl) return
+
+    autoPosterSentRef.current = true
+
+    document.fonts.ready.then(() =>
+      import("html-to-image").then(({ toPng }) =>
+        toPng(posterEl, { pixelRatio: 2.5 })
+      )
+    ).then((posterDataUrl) =>
+      fetch("/api/send-poster", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          name1:         displayName1,
+          name2:         displayName2,
+          formattedDate,
+          city:          coords.displayName,
+          posterDataUrl,
+        }),
+      })
+    ).catch((err) => {
+      console.error("[result] auto poster email failed:", err)
+    })
+  }, [starMapDataUrl, skyData, email, displayName1, displayName2, formattedDate, coords.displayName])
 
   // ── Informações astronômicas para o pôster ────────────────────────────────
   const posterSkyInfo: PosterSkyInfo | undefined = skyData

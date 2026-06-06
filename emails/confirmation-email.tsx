@@ -1,6 +1,5 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
@@ -12,14 +11,13 @@ import {
 } from "@react-email/components"
 
 interface ConfirmationEmailProps {
-  name1:    string
-  name2:    string
-  date:     string
-  city:     string
-  resultUrl: string
+  name1: string
+  name2: string
+  date:  string
+  city:  string
 }
 
-export function ConfirmationEmail({ name1, name2, date, city, resultUrl }: ConfirmationEmailProps) {
+export function ConfirmationEmail({ name1, name2, date, city }: ConfirmationEmailProps) {
   return (
     <Html lang="pt-BR">
       <Head />
@@ -49,21 +47,12 @@ export function ConfirmationEmail({ name1, name2, date, city, resultUrl }: Confi
           {/* Body */}
           <Section style={content}>
             <Text style={paragraph}>
-              Olá, {name1}! Seu mapa estelar personalizado foi gerado com sucesso.
-              Acesse a página de resultado para visualizar, personalizar e baixar
-              o pôster do momento especial que você escolheu.
+              Olá, {name1}! Seu pagamento foi confirmado com sucesso.
+              Estamos gerando o pôster personalizado com o céu de {city} na noite de <strong style={highlight}>{date}</strong>.
             </Text>
             <Text style={paragraph}>
-              Você pode editar a fonte e a frase que aparece no pôster antes de baixar —
-              queremos que fique exatamente do jeito que você imaginou.
+              Em instantes você receberá outro e-mail com o pôster de {name1} & {name2} pronto para salvar ou imprimir.
             </Text>
-          </Section>
-
-          {/* CTA */}
-          <Section style={ctaSection}>
-            <Button href={resultUrl} style={button}>
-              Ver meu mapa estelar →
-            </Button>
           </Section>
 
           <Hr style={divider} />
@@ -186,23 +175,6 @@ const paragraph: React.CSSProperties = {
   fontSize:   "15px",
   lineHeight: 1.7,
   margin:     "0 0 16px",
-}
-
-const ctaSection: React.CSSProperties = {
-  padding:   "16px 40px 32px",
-  textAlign: "center",
-}
-
-const button: React.CSSProperties = {
-  background:    "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
-  borderRadius:  "10px",
-  color:         "#ffffff",
-  fontSize:      "15px",
-  fontWeight:    600,
-  padding:       "14px 32px",
-  textDecoration:"none",
-  display:       "inline-block",
-  letterSpacing: "0.02em",
 }
 
 const detailsSection: React.CSSProperties = {

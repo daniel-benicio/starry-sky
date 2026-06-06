@@ -29,7 +29,7 @@ test.describe("Página de resultado — mapa estelar", () => {
   })
 
   test("exibe os nomes do casal", async ({ page }) => {
-    await expect(page.getByText("Ana & Lucas")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Ana & Lucas" })).toBeVisible()
   })
 
   test("exibe a data formatada em português", async ({ page }) => {

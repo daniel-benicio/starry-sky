@@ -1,4 +1,4 @@
-import { Heart } from "lucide-react"
+import { Heart, Mail } from "lucide-react"
 
 export function Footer() {
   return (
@@ -10,6 +10,15 @@ export function Footer() {
             Presente perfeito para o Dia dos Namorados
           </p>
           <Heart className="w-5 h-5 text-primary fill-primary" />
+        </div>
+        <div className="flex items-center justify-center gap-1.5 mb-4">
+          <Mail className="w-4 h-4 text-muted-foreground" />
+          <a
+            href="mailto:suporteceuestrelado@gmail.com"
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            suporteceuestrelado@gmail.com
+          </a>
         </div>
         <p className="text-muted-foreground text-sm">
           © {new Date().getFullYear()} Céu do Nosso Dia. Todos os direitos reservados.
