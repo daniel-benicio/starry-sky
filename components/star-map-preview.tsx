@@ -80,7 +80,7 @@ export function StarMapPreview({ date, names }: StarMapPreviewProps) {
   }, [])   // only on mount — fully static
 
   return (
-    <div className="relative w-full max-w-[300px]">
+    <div className="relative w-full max-w-75">
       <div className="absolute inset-0 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative rounded-full border border-primary/20 p-4 bg-background/50 backdrop-blur-sm">
         <canvas
