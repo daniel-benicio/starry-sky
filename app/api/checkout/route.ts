@@ -5,9 +5,6 @@ import { upsertUser, createOrder, createPayment, transitionPayment, transitionOr
 import { sendEmail } from "@/lib/email"
 import { ConfirmationEmail } from "@/emails/confirmation-email"
 import { formatDate } from "@/lib/formatters"
-import { createResultToken } from "@/lib/result-token"
-import { nominatimGeocode } from "@/lib/nominatim"
-import { geocodeCity } from "@/lib/geocoding"
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,28 +27,15 @@ export async function POST(req: NextRequest) {
     await transitionPayment(paymentId, "succeeded", paymentIntentId)
     await transitionOrder(orderId, "paid")
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://ceuestrelado.online"
-
-    let lat: number | undefined
-    let lon: number | undefined
-    if (city) {
-      const coords = (await nominatimGeocode(city)) ?? geocodeCity(city)
-      if (coords) { lat = coords.lat; lon = coords.lon }
-    }
-
-    const resultToken = await createResultToken({ date, city, email, name1, name2, lat, lon })
-    const resultUrl   = `${baseUrl}/result?token=${resultToken}`
-
     // Fire-and-forget — don't fail the checkout if the email fails
     sendEmail({
       to:      email,
-      subject: `✨ Seu mapa estelar está pronto, ${name1}!`,
+      subject: `✨ Pagamento confirmado — seu pôster estelar está a caminho, ${name1}!`,
       react:   createElement(ConfirmationEmail, {
         name1,
         name2,
-        date:      formatDate(date),
+        date: formatDate(date),
         city,
-        resultUrl,
       }),
     }).catch((err) => {
       console.error("[checkout] confirmation email failed:", err)
