@@ -159,6 +159,18 @@ describe("POST /api/checkout", () => {
     )
   })
 
+  it("cria pagamento com amountCents = 499 (R$ 4,99)", async () => {
+    await POST(makeRequest(validBody))
+
+    expect(createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId:           "order_abc123",
+        amountCents:       499,
+        providerPaymentId: PAYMENT_INTENT_ID,
+      }),
+    )
+  })
+
   it("chama transitionPayment e transitionOrder com paymentIntentId", async () => {
     await POST(makeRequest(validBody))
 

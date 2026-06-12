@@ -22,6 +22,11 @@ test.describe("Página de pagamento", () => {
     await expect(page.getByText("Ana & Lucas", { exact: true }).first()).toBeVisible()
   })
 
+  test("exibe o preço R$ 4,99 no resumo e no botão de pagamento", async ({ page }) => {
+    await expect(page.getByText(/r\$\s*4,99/i).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: /pagar r\$\s*4,99/i })).toBeVisible()
+  })
+
   test("exibe os campos de nome e CPF do titular", async ({ page }) => {
     await expect(page.locator('input[autocomplete="cc-name"]')).toBeVisible()
     await expect(page.locator('input[id="cardDocument"]')).toBeVisible()

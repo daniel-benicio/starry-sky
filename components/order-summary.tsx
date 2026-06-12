@@ -5,7 +5,7 @@ import { StarMapPreview } from "@/components/star-map-preview"
 import { formatDate } from "@/lib/formatters"
 import type { OrderData } from "@/types/order"
 
-const PRICE_DISPLAY = "R$ 24,99"
+const PRICE_DISPLAY = "R$ 4,99"
 
 interface OrderSummaryProps extends Pick<OrderData, "date" | "city" | "name1" | "name2"> {}
 
@@ -30,7 +30,7 @@ export function OrderSummary({ date, city, name1, name2 }: OrderSummaryProps) {
             {formattedDate && <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>}
             {city         && <p className="text-sm text-muted-foreground">{city}</p>}
           </div>
-          <p className="font-serif text-2xl text-primary shrink-0">R$&nbsp;24,99</p>
+          <p className="font-serif text-2xl text-primary shrink-0">R$&nbsp;4,99</p>
         </div>
 
         <div className="border-t border-border/50 pt-4 flex justify-between items-center">
