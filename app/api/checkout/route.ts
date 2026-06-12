@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const userId    = await upsertUser(email, cpf)
     const orderId   = await createOrder({ userId, name1, name2, date, city })
-    const paymentId = await createPayment({ orderId, amountCents: 2499, providerPaymentId: paymentIntentId })
+    const paymentId = await createPayment({ orderId, amountCents: 499, providerPaymentId: paymentIntentId })
 
     await transitionPayment(paymentId, "confirmed", paymentIntentId)
     await transitionPayment(paymentId, "succeeded", paymentIntentId)
