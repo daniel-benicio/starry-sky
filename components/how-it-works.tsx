@@ -9,7 +9,7 @@ const steps = [
   },
   {
     number: 2,
-    title: "Pagamento único de R$24,99",
+    title: "Pagamento único de R$4,99",
     description: "Sem assinaturas ou taxas ocultas",
     icon: CreditCard,
   },

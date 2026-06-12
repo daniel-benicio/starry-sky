@@ -33,6 +33,11 @@ test.describe("Landing page — formulário de pedido", () => {
     await expect(page.locator('input[type="email"]')).toBeVisible()
   })
 
+  test("exibe preço R$ 4,99 no hero e na seção como funciona", async ({ page }) => {
+    await expect(page.getByText("R$ 4,99", { exact: true })).toBeVisible()
+    await expect(page.getByText(/pagamento único de r\$4,99/i)).toBeVisible()
+  })
+
   test("botão de submit com formulário vazio mantém na mesma URL", async ({ page }) => {
     await page.getByRole("button", { name: /gerar meu céu/i }).click()
     await expect(page).toHaveURL("/")

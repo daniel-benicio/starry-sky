@@ -31,7 +31,7 @@ export function HeroSection({ onSubmit }: HeroSectionProps) {
             {/* Pricing Anchor */}
             <div className="mb-8 p-6 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm max-w-md mx-auto lg:mx-0">
               <div className="flex items-baseline justify-center lg:justify-start gap-2">
-                <span className="font-serif text-5xl text-foreground">R$ 24,99</span>
+                <span className="font-serif text-5xl text-foreground">R$ 4,99</span>
               </div>
               <p className="text-muted-foreground text-sm mt-2 text-center lg:text-left">
                 pagamento único &bull; sem assinatura &bull; entrega imediata
